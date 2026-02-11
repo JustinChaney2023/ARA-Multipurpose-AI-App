@@ -7,9 +7,9 @@ Alzheimer's Resource Alaska Caregiver Assistant - A local-first desktop app for 
 - **Import**: Drag-and-drop PDFs or images of caregiver notes
 - **OCR**: Extract text using local OCR (tesseract.js)
 - **Review**: Edit extracted form fields with confidence highlighting
-- 📤 **Export**: Generate fillable PDFs
-- 🔒 **HIPAA-Compliant**: All processing happens locally by default
-- 🤖 **AI-Powered**: Optional Ollama LLM for better extraction accuracy
+- **Export**: Generate fillable PDFs
+- **HIPAA-Compliant**: All processing happens locally by default
+- **AI-Powered**: Optional Ollama LLM for better extraction accuracy (currently not functional as it timesout)
 
 ## Quick Start
 
