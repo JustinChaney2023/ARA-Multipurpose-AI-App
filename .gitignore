@@ -1,42 +1,143 @@
+# =============================================================================
+# ARA Caregiver Assistant - .gitignore
+# HIPAA-compliant: Never commit PHI, patient data, or sensitive files
+# =============================================================================
+
+# -----------------------------------------------------------------------------
 # Dependencies
+# -----------------------------------------------------------------------------
 node_modules/
 .pnpm-store/
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
 
-# Build outputs
+# -----------------------------------------------------------------------------
+# Build Outputs
+# -----------------------------------------------------------------------------
 dist/
 build/
-target/
+*.tsbuildinfo
 
-# Tauri
+# -----------------------------------------------------------------------------
+# Tauri / Rust
+# -----------------------------------------------------------------------------
+# Tauri build output
+target/
 apps/desktop/src-tauri/target/
 apps/desktop/dist/
 
-# Local uploads (HIPAA - never commit PHI)
-services/local-ai/uploads/
+# Cargo
+**/Cargo.lock
+!**/src-tauri/Cargo.lock
 
-# Environment files
+# -----------------------------------------------------------------------------
+# PHI & Patient Data (CRITICAL - HIPAA Compliance)
+# -----------------------------------------------------------------------------
+# Never commit any uploaded files that may contain patient information
+services/local-ai/uploads/
+services/local-ai/temp/
+*.pdf
+!templates/**/*.pdf
+*.jpg
+*.jpeg
+*.png
+*.tiff
+*.tif
+
+# -----------------------------------------------------------------------------
+# Environment Files (sensitive configuration)
+# -----------------------------------------------------------------------------
 .env
 .env.local
 .env.*.local
+.env.development
+.env.test
+.env.production
+!.env.example
 
-# IDE
+# -----------------------------------------------------------------------------
+# IDE & Editors
+# -----------------------------------------------------------------------------
 .vscode/*
 !.vscode/extensions.json
+!.vscode/settings.json
 .idea/
 *.swp
 *.swo
+*~
+.vs/
+*.sublime-project
+*.sublime-workspace
 
-# OS
+# -----------------------------------------------------------------------------
+# OS Generated Files
+# -----------------------------------------------------------------------------
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
+desktop.ini
 
+# -----------------------------------------------------------------------------
 # Logs
+# -----------------------------------------------------------------------------
+logs/
 *.log
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
 
-# Testing
+# -----------------------------------------------------------------------------
+# Testing & Coverage
+# -----------------------------------------------------------------------------
 coverage/
+.nyc_output/
+*.lcov
 
-# Misc
+# -----------------------------------------------------------------------------
+# Temporary Files
+# -----------------------------------------------------------------------------
 *.tmp
 *.temp
+tmp/
+temp/
+*.cache
+.cache/
+
+# -----------------------------------------------------------------------------
+# OCR / PDF Processing Temp Files
+# -----------------------------------------------------------------------------
+# Temporary image files created during PDF->image conversion
+page-*.png
+page-*.jpg
+*.ppm
+ara-ocr-*/
+
+# -----------------------------------------------------------------------------
+# Large Binary Files
+# -----------------------------------------------------------------------------
+# Note: eng.traineddata is intentionally committed for offline OCR
+# Add other large binaries here if needed
+
+# -----------------------------------------------------------------------------
+# Backup Files
+# -----------------------------------------------------------------------------
+*.bak
+*.backup
+*.orig
+
+# -----------------------------------------------------------------------------
+# Package Manager Files (optional - uncomment if needed)
+# -----------------------------------------------------------------------------
+# Uncomment if you don't want to commit lock files
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
