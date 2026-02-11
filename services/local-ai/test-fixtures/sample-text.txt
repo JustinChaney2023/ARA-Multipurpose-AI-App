@@ -1,0 +1,33 @@
+Monthly Care Coordination Monitoring Contact
+
+Recipient Name: Mary Johnson
+Date: 02/15/2024
+Time: 2:30 PM
+Recipient ID: ARA-2024-001
+DOB: 03/12/1955
+Location: Client Home
+
+Care Coordination Type: [X] SIH [ ] HCBW
+
+Contact Type: [X] Face to Face Visit with Client
+              [ ] Other Monitoring Contact
+              [X] Home Visit
+              [ ] Service Site Visit
+What Service: Personal Care Services
+
+Recipient & Visit Observations:
+Client was alert and oriented during visit. Daughter present and assisting with care. Home environment clean and safe.
+
+Health/Emotional Status, Med Changes, Doctor Visits, Behavior Changes:
+Blood pressure elevated at 150/90. Client reports feeling anxious about upcoming doctor appointment. No medication changes this month. No falls or hospital visits.
+
+Review of Services:
+Personal care aide visits 3x weekly. Client satisfied with current services. No changes requested at this time.
+
+Progress toward Goals:
+Goal 1: Maintain independence - PROGRESSING
+Goal 2: Medication compliance - ACHIEVED
+Goal 3: Safety in home - PROGRESSING
+
+Additional Notes:
+Client's daughter will attend next doctor appointment. Follow up in 2 weeks.
