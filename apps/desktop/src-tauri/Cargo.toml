@@ -1,0 +1,21 @@
+[package]
+name = "ara-caregiver-assistant"
+version = "0.1.0"
+description = "ARA Caregiver Assistant Desktop App"
+authors = ["ARA Team"]
+license = "MIT"
+repository = ""
+edition = "2021"
+rust-version = "1.70"
+
+[build-dependencies]
+tauri-build = { version = "1.5.0", features = [] }
+
+[dependencies]
+tauri = { version = "1.5.0", features = [ "fs-write-file", "dialog-open", "fs-read-file", "shell-open"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]

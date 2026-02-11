@@ -1,32 +1,42 @@
-# Prerequisites
-*.d
+# Dependencies
+node_modules/
+.pnpm-store/
 
-# Compiled Object files
-*.slo
-*.lo
-*.o
-*.obj
+# Build outputs
+dist/
+build/
+target/
 
-# Precompiled Headers
-*.gch
-*.pch
+# Tauri
+apps/desktop/src-tauri/target/
+apps/desktop/dist/
 
-# Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
+# Local uploads (HIPAA - never commit PHI)
+services/local-ai/uploads/
 
-# Fortran module files
-*.mod
-*.smod
+# Environment files
+.env
+.env.local
+.env.*.local
 
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
+# IDE
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
 
-# Executables
-*.exe
-*.out
-*.app
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Testing
+coverage/
+
+# Misc
+*.tmp
+*.temp

@@ -1,0 +1,29 @@
+{
+  "name": "ara-caregiver-assistant",
+  "version": "0.1.0",
+  "description": "Alzheimer's Resource Alaska Caregiver Assistant - Local-first desktop app for converting caregiver notes into structured forms",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "services/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "verify": "node scripts/verify.js",
+    "dev:service": "npm run -w services/local-ai dev",
+    "dev:desktop": "npm run -w apps/desktop tauri dev",
+    "dev:web": "npm run -w apps/desktop dev:web",
+    "setup:ollama": "ollama pull qwen:4b",
+    "build": "npm run build --workspaces",
+    "build:desktop": "npm run -w apps/desktop tauri build",
+    "test": "npm run test --workspaces"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0",
+    "vitest": "^1.2.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

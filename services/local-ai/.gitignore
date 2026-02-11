@@ -1,0 +1,8 @@
+# Upload directory - contains PHI, never commit
+uploads/
+
+# Build output
+dist/
+
+# Logs
+*.log

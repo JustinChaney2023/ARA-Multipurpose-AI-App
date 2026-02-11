@@ -1,0 +1,121 @@
+{
+  "version": "mccmc_v1",
+  "description": "Monthly Care Coordination Monitoring Contact",
+  "formName": "Monthly Care Coordination Monitoring Contact",
+  "fields": {
+    "header.recipientName": {
+      "pdfField": "RecipientName",
+      "type": "text",
+      "required": true,
+      "label": "Recipient Name"
+    },
+    "header.date": {
+      "pdfField": "Date",
+      "type": "text",
+      "required": true,
+      "label": "Date"
+    },
+    "header.time": {
+      "pdfField": "Time",
+      "type": "text",
+      "required": false,
+      "label": "Time"
+    },
+    "header.recipientIdentifier": {
+      "pdfField": "RecipientIdentifier",
+      "type": "text",
+      "required": false,
+      "label": "Recipient Identifier"
+    },
+    "header.dob": {
+      "pdfField": "DOB",
+      "type": "text",
+      "required": false,
+      "label": "Date of Birth"
+    },
+    "header.location": {
+      "pdfField": "Location",
+      "type": "text",
+      "required": false,
+      "label": "Location"
+    },
+    "careCoordinationType.sih": {
+      "pdfField": "SIH",
+      "type": "checkbox",
+      "required": false,
+      "label": "SIH"
+    },
+    "careCoordinationType.hcbw": {
+      "pdfField": "HCBW",
+      "type": "checkbox",
+      "required": false,
+      "label": "HCBW"
+    },
+    "contactType.faceToFaceVisit": {
+      "pdfField": "FaceToFaceVisit",
+      "type": "checkbox",
+      "required": false,
+      "label": "Face to Face Visit with Client"
+    },
+    "contactType.otherMonitoringContact": {
+      "pdfField": "OtherMonitoringContact",
+      "type": "checkbox",
+      "required": false,
+      "label": "Other Monitoring Contact with Client or Legal Rep"
+    },
+    "contactType.homeVisit": {
+      "pdfField": "HomeVisit",
+      "type": "checkbox",
+      "required": false,
+      "label": "Home Visit"
+    },
+    "contactType.serviceSiteVisit": {
+      "pdfField": "ServiceSiteVisit",
+      "type": "checkbox",
+      "required": false,
+      "label": "Service Site Visit"
+    },
+    "contactType.whatService": {
+      "pdfField": "WhatService",
+      "type": "text",
+      "required": false,
+      "label": "What Service"
+    },
+    "narrative.recipientAndVisitObservations": {
+      "pdfField": "RecipientAndVisitObservations",
+      "type": "textarea",
+      "required": false,
+      "label": "Recipient & Visit Observations"
+    },
+    "narrative.healthEmotionalStatus": {
+      "pdfField": "HealthEmotionalStatus",
+      "type": "textarea",
+      "required": false,
+      "label": "Health/Emotional Status, Med Changes, Doctor Visits, Behavior Changes, Critical Incidents, Falls, Hospital/Urgent Care Visits"
+    },
+    "narrative.reviewOfServices": {
+      "pdfField": "ReviewOfServices",
+      "type": "textarea",
+      "required": false,
+      "label": "Review of Services"
+    },
+    "narrative.progressTowardGoals": {
+      "pdfField": "ProgressTowardGoals",
+      "type": "textarea",
+      "required": false,
+      "label": "Progress toward Goals"
+    },
+    "narrative.additionalNotes": {
+      "pdfField": "AdditionalNotes",
+      "type": "textarea",
+      "required": false,
+      "label": "Additional Notes"
+    },
+    "notesForReviewer": {
+      "pdfField": "NotesForReviewer",
+      "type": "textarea",
+      "required": false,
+      "label": "Notes for Reviewer"
+    }
+  }
+}
