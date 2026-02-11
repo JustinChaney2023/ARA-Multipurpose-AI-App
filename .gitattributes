@@ -1,2 +1,7 @@
 # Auto detect text files and perform LF normalization
-* text=auto
+* text=auto eol=lf
+
+# Avoid noisy diffs on lockfiles (optional)
+package-lock.json -diff
+pnpm-lock.yaml -diff
+yarn.lock -diff
