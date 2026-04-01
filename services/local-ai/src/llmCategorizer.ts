@@ -5,10 +5,15 @@
 
 import { createEmptyForm } from '@ara/shared';
 import { logger, createProgressTracker } from './logger.js';
+import { parseLLMJSON, isPlaceholder, cleanPlaceholders } from './jsonUtils.js';
+import { 
+  DEFAULT_MODEL, 
+  OLLAMA_BASE_URL, 
+  getModelOptions, 
+  buildQwen3Prompt,
+  SYSTEM_PROMPTS 
+} from './modelConfig.js';
 import type { MonthlyCareCoordinationForm } from '@ara/shared';
-
-const OLLAMA_BASE_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
-const DEFAULT_MODEL = process.env.OLLAMA_MODEL || 'qwen2.5:0.5b';
 
 // Track if LLM failed (to avoid repeated timeouts)
 let llmFailed = false;
@@ -59,7 +64,10 @@ export async function categorizeAndValidateWithLLM(
   
   // Step 3: Merge and finalize
   progress.update(90, 'Merging results');
-  const form = mergeWithDefaults(categorized, validation);
+  let form = mergeWithDefaults(categorized, validation);
+  
+  // Final safety: ensure all fields are proper types
+  form = sanitizeFormTypes(form);
   
   progress.complete('Categorization complete');
   
@@ -77,42 +85,35 @@ export async function categorizeAndValidateWithLLM(
 
 /**
  * Step 1: Categorize raw OCR text into form fields
- * Uses simplified prompt without format:json for better small model performance
  */
 async function categorizeText(ocrText: string): Promise<{ data: Partial<MonthlyCareCoordinationForm>; rawOutput: string }> {
-  // Simplified, focused prompt that works better with small models
-  const prompt = `Extract form data from caregiver notes into JSON.
+  const system = `Extract form data from caregiver notes into JSON format.
 
-EXAMPLE 1 - Simple extraction:
+EXAMPLES:
+
+Example 1:
 Input: "Name: John Doe, Date: 03/15/2024, SIH checked"
 Output: {"header":{"recipientName":"John Doe","date":"03/15/2024","time":"","recipientIdentifier":"","dob":"","location":""},"careCoordinationType":{"sih":true,"hcbw":false},"narrative":{"recipientAndVisitObservations":"","healthEmotionalStatus":"","reviewOfServices":"","progressTowardGoals":"","additionalNotes":"","followUpTasks":""},"signature":{"careCoordinatorName":"","signature":"","dateSigned":""}}
 
-EXAMPLE 2 - With narrative:
-Input: "Client Mary Smith visited 02/10/2024. BP 140/90. HCBW service. Client doing well."
+Example 2:
+Input: "Client Mary Smith visited 02/10/2024. BP 140/90. HCBW service."
 Output: {"header":{"recipientName":"Mary Smith","date":"02/10/2024","time":"","recipientIdentifier":"","dob":"","location":""},"careCoordinationType":{"sih":false,"hcbw":true},"narrative":{"recipientAndVisitObservations":"Client doing well.","healthEmotionalStatus":"BP 140/90.","reviewOfServices":"","progressTowardGoals":"","additionalNotes":"","followUpTasks":""},"signature":{"careCoordinatorName":"","signature":"","dateSigned":""}}
 
-NOW EXTRACT FROM THIS TEXT (respond with ONLY JSON):
----
-${ocrText.substring(0, 4000)}
----
+Respond with ONLY valid JSON. No other text.`;
 
-JSON OUTPUT:`;
+  const prompt = `NOW EXTRACT FROM:\n"""\n${ocrText.substring(0, 5000)}\n"""\n\nJSON OUTPUT:`;
 
   const response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: DEFAULT_MODEL,
-      prompt,
+      system: system,
+      prompt: prompt,
       stream: false,
-      // NOTE: Removed format: 'json' - it confuses small models with complex schemas
-      options: {
-        temperature: 0.1,  // Lower temperature for more deterministic output
-        num_predict: 2000, // Reduced from 4000 for faster response
-        stop: ["\n\n", "Input:", "Output:"], // Stop sequences to prevent continuation
-      },
+      options: getModelOptions(),
     }),
-    signal: AbortSignal.timeout(60000),
+    signal: AbortSignal.timeout(120000),
   });
 
   if (!response.ok) {
@@ -124,34 +125,15 @@ JSON OUTPUT:`;
   
   logger.debug('LLM raw output', { rawOutput: rawOutput.substring(0, 500) });
   
-  // Parse the JSON response with multiple fallback strategies
-  let parsed: Partial<MonthlyCareCoordinationForm>;
-  try {
-    // Try direct parse first
-    parsed = JSON.parse(rawOutput);
-  } catch (directError) {
-    // Try extracting from markdown code block
-    const codeBlockMatch = rawOutput.match(/```(?:json)?\n?([\s\S]*?)\n?```/);
-    if (codeBlockMatch) {
-      try {
-        parsed = JSON.parse(codeBlockMatch[1].trim());
-      } catch {
-        throw new Error('Could not parse JSON from code block');
-      }
-    } else {
-      // Try finding JSON object between curly braces
-      const jsonMatch = rawOutput.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        try {
-          parsed = JSON.parse(jsonMatch[0]);
-        } catch {
-          throw new Error('Could not parse JSON from matched brackets');
-        }
-      } else {
-        throw new Error('No JSON object found in LLM output');
-      }
-    }
+  // Parse the JSON response using shared utility
+  const parseResult = parseLLMJSON<Partial<MonthlyCareCoordinationForm>>(rawOutput);
+  
+  if (!parseResult.success) {
+    throw new Error(parseResult.error);
   }
+  
+  // Clean any placeholder values
+  const parsed = cleanPlaceholders(parseResult.data);
   
   return { data: parsed, rawOutput };
 }
@@ -166,9 +148,9 @@ async function validateCategorizedData(
   const form = categorized.data;
   const issues: ValidationIssue[] = [];
   
-  // Check for literal "string" values (LLM misunderstood the prompt)
-  const checkLiteralString = (value: unknown, field: string) => {
-    if (typeof value === 'string' && value.toLowerCase().includes('string')) {
+  // Check for placeholder values using shared utility
+  const checkPlaceholder = (value: unknown, field: string) => {
+    if (isPlaceholder(value)) {
       issues.push({
         field,
         issue: `Placeholder value found: "${value}"`,
@@ -181,12 +163,12 @@ async function validateCategorizedData(
   
   // Clean header fields
   if (form.header) {
-    form.header.recipientName = checkLiteralString(form.header.recipientName, 'header.recipientName') as string;
-    form.header.date = checkLiteralString(form.header.date, 'header.date') as string;
-    form.header.time = checkLiteralString(form.header.time, 'header.time') as string;
-    form.header.recipientIdentifier = checkLiteralString(form.header.recipientIdentifier, 'header.recipientIdentifier') as string;
-    form.header.dob = checkLiteralString(form.header.dob, 'header.dob') as string;
-    form.header.location = checkLiteralString(form.header.location, 'header.location') as string;
+    form.header.recipientName = checkPlaceholder(form.header.recipientName, 'header.recipientName') as string;
+    form.header.date = checkPlaceholder(form.header.date, 'header.date') as string;
+    form.header.time = checkPlaceholder(form.header.time, 'header.time') as string;
+    form.header.recipientIdentifier = checkPlaceholder(form.header.recipientIdentifier, 'header.recipientIdentifier') as string;
+    form.header.dob = checkPlaceholder(form.header.dob, 'header.dob') as string;
+    form.header.location = checkPlaceholder(form.header.location, 'header.location') as string;
   }
   
   // Date validation
@@ -226,11 +208,11 @@ async function validateCategorizedData(
     });
   }
   
-  // Check narrative content quality
+  // Check narrative content quality (excluding placeholders)
   const narratives = form.narrative || {};
   const hasNarrativeContent = Object.entries(narratives)
     .filter(([key]) => key !== 'followUpTasks')
-    .some(([, v]) => typeof v === 'string' && v.length > 20 && !v.toLowerCase().includes('string'));
+    .some(([, v]) => typeof v === 'string' && v.length > 20 && !isPlaceholder(v));
   
   if (!hasNarrativeContent) {
     issues.push({
@@ -240,10 +222,10 @@ async function validateCategorizedData(
     });
   }
   
-  // Clean narrative fields of placeholder text
+  // Clean narrative fields of placeholder text (already done by cleanPlaceholders, but ensure here)
   if (form.narrative) {
     for (const [key, value] of Object.entries(form.narrative)) {
-      if (typeof value === 'string' && value.toLowerCase().includes('string')) {
+      if (isPlaceholder(value)) {
         form.narrative[key as keyof typeof form.narrative] = '';
       }
     }
@@ -252,6 +234,74 @@ async function validateCategorizedData(
   logger.debug('Validation complete', { issueCount: issues.length });
   
   return { issues, corrected: form };
+}
+
+/**
+ * Ensure all form fields have correct types
+ * LLM may return objects instead of strings for some fields
+ */
+function sanitizeFormTypes(form: MonthlyCareCoordinationForm): MonthlyCareCoordinationForm {
+  const sanitizeString = (value: unknown): string => {
+    if (typeof value === 'string') return value;
+    if (value === null || value === undefined) return '';
+    if (typeof value === 'object') {
+      // If it's an object, try to extract a string representation
+      const obj = value as Record<string, unknown>;
+      // Common patterns: {first, last}, {value}, {text}
+      if (obj.first && obj.last) {
+        return `${obj.first} ${obj.last}`.trim();
+      }
+      if (obj.value && typeof obj.value === 'string') {
+        return obj.value;
+      }
+      if (obj.text && typeof obj.text === 'string') {
+        return obj.text;
+      }
+      // Fallback: JSON string
+      try {
+        return JSON.stringify(value);
+      } catch {
+        return String(value);
+      }
+    }
+    return String(value);
+  };
+
+  const sanitizeBoolean = (value: unknown): boolean => {
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'string') {
+      return value.toLowerCase() === 'true' || value === '1' || value.toLowerCase() === 'yes';
+    }
+    return Boolean(value);
+  };
+
+  return {
+    header: {
+      recipientName: sanitizeString(form.header?.recipientName),
+      date: sanitizeString(form.header?.date),
+      time: sanitizeString(form.header?.time),
+      recipientIdentifier: sanitizeString(form.header?.recipientIdentifier),
+      dob: sanitizeString(form.header?.dob),
+      location: sanitizeString(form.header?.location),
+    },
+    careCoordinationType: {
+      sih: sanitizeBoolean(form.careCoordinationType?.sih),
+      hcbw: sanitizeBoolean(form.careCoordinationType?.hcbw),
+    },
+    narrative: {
+      recipientAndVisitObservations: sanitizeString(form.narrative?.recipientAndVisitObservations),
+      healthEmotionalStatus: sanitizeString(form.narrative?.healthEmotionalStatus),
+      reviewOfServices: sanitizeString(form.narrative?.reviewOfServices),
+      progressTowardGoals: sanitizeString(form.narrative?.progressTowardGoals),
+      additionalNotes: sanitizeString(form.narrative?.additionalNotes),
+      followUpTasks: sanitizeString(form.narrative?.followUpTasks),
+    },
+    signature: {
+      careCoordinatorName: sanitizeString(form.signature?.careCoordinatorName),
+      signature: sanitizeString(form.signature?.signature),
+      dateSigned: sanitizeString(form.signature?.dateSigned),
+    },
+  };
 }
 
 /**

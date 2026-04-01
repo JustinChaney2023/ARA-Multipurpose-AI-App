@@ -2,6 +2,17 @@
  * Simple logger with timestamps and levels
  */
 
+import { setProgress } from './progressStore.js';
+
+// Track current operations and their stages for accurate progress
+const operationStages: Record<string, { start: number; end: number }> = {
+  'EXTRACT': { start: 0, end: 100 },
+  'OCR': { start: 10, end: 50 },
+  'PARSER': { start: 50, end: 95 },
+  'FILL': { start: 0, end: 100 },
+  'NARRATIVE_QA': { start: 0, end: 100 },
+};
+
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 const LOG_LEVEL: LogLevel = (process.env.LOG_LEVEL as LogLevel) || 'info';
@@ -65,6 +76,9 @@ export function updateProgress(stage: string, percent: number, message: string):
   const progress = { stage, percent, message };
   logger.info(`[${stage}] ${percent}% - ${message}`);
   progressCallbacks.forEach(cb => cb(progress));
+  
+  // Also store in progress store for API polling
+  setProgress(stage, percent, message);
 }
 
 /**

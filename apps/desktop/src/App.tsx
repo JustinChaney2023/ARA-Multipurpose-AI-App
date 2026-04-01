@@ -8,6 +8,7 @@ type Screen = 'import' | 'review';
 function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('import');
   const [extractionResult, setExtractionResult] = useState<ExtractionResult | null>(null);
+  const [importKey, setImportKey] = useState(0);
 
   const handleExtracted = (result: ExtractionResult) => {
     setExtractionResult(result);
@@ -17,6 +18,13 @@ function App() {
   const handleBackToImport = () => {
     setCurrentScreen('import');
     setExtractionResult(null);
+  };
+
+  const handleNewForm = () => {
+    // Reset to import screen with a new key to force remount (fresh state)
+    setCurrentScreen('import');
+    setExtractionResult(null);
+    setImportKey(prev => prev + 1);
   };
 
   return (
@@ -37,13 +45,14 @@ function App() {
         </nav>
 
         {currentScreen === 'import' && (
-          <ImportScreen onExtracted={handleExtracted} />
+          <ImportScreen key={importKey} onExtracted={handleExtracted} />
         )}
         
         {currentScreen === 'review' && extractionResult && (
           <ReviewScreen 
             result={extractionResult} 
             onBack={handleBackToImport}
+            onNewForm={handleNewForm}
           />
         )}
       </main>

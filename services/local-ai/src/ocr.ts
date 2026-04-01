@@ -6,12 +6,12 @@ import path from 'path';
 import os from 'os';
 import { fileURLToPath } from 'url';
 import { logger, createProgressTracker } from './logger.js';
+import { config } from './config/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Local path to tesseract trained data - ensures offline operation
-// The eng.traineddata file should be in services/local-ai/ directory
-const TESSERACT_LANG_PATH = path.join(__dirname, '..');
+const TESSERACT_LANG_PATH = config.ocr.tesseractLangPath || path.join(__dirname, '..');
 
 export interface OCROutput {
   text: string;
@@ -92,7 +92,7 @@ async function extractFromPDFWithOCR(
     progress.update(20, 'Converting PDF pages to images');
     
     const convert = fromPath(filePath, {
-      density: 300,
+      density: config.ocr.pdfDensity,
       saveFilename: 'page',
       savePath: tempDir,
       format: 'png',

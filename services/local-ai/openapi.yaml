@@ -1,0 +1,524 @@
+openapi: 3.0.3
+info:
+  title: ARA Local AI Service
+  description: |
+    Local AI service for Alzheimer's Resource Alaska Caregiver Assistant.
+    Provides OCR, form extraction, and PDF generation capabilities.
+    All processing happens locally for HIPAA compliance.
+  version: 1.0.0
+  contact:
+    name: ARA Support
+    email: support@alzalaska.org
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:3001
+    description: Local development server
+
+paths:
+  /health:
+    get:
+      summary: Health Check
+      description: Check service health and Ollama connectivity
+      operationId: healthCheck
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+
+  /extract/pdf:
+    post:
+      summary: Extract from PDF/Image
+      description: |
+        Extract text from PDF or image files using OCR.
+        Supports PDF, PNG, JPEG, WebP, and TIFF formats.
+        Maximum file size: 50MB.
+      operationId: extractPDF
+      tags:
+        - Extraction
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: PDF or image file to process
+      responses:
+        '200':
+          description: Extraction successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExtractionResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /extract/fill:
+    post:
+      summary: Fill Form from Text
+      description: |
+        Extract structured form data from raw text using AI.
+        Uses local LLM (Qwen3) for intelligent extraction.
+      operationId: fillForm
+      tags:
+        - Extraction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FillRequest'
+      responses:
+        '200':
+          description: Form filled successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExtractionResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+
+  /summarize:
+    post:
+      summary: Summarize Notes
+      description: Generate human-readable summary of caregiver notes
+      operationId: summarize
+      tags:
+        - AI
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SummarizeRequest'
+      responses:
+        '200':
+          description: Summary generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SummaryResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+
+  /export/pdf:
+    post:
+      summary: Export Form to PDF
+      description: Generate professional PDF from form data
+      operationId: exportPDF
+      tags:
+        - Export
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExportRequest'
+      responses:
+        '200':
+          description: PDF generated
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /progress/{operation}:
+    get:
+      summary: Get Operation Progress
+      description: Poll for progress of long-running operations
+      operationId: getProgress
+      tags:
+        - Progress
+      parameters:
+        - name: operation
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [EXTRACT, FILL]
+      responses:
+        '200':
+          description: Progress information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProgressInfo'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /validate:
+    post:
+      summary: Validate Form
+      description: Validate form data and return errors/warnings
+      operationId: validateForm
+      tags:
+        - Validation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ValidateRequest'
+      responses:
+        '200':
+          description: Validation result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationResult'
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+        ollama:
+          type: string
+          enum: [connected, disconnected]
+        model:
+          type: object
+          properties:
+            configured:
+              type: string
+            available:
+              type: boolean
+            warmedUp:
+              type: boolean
+        models:
+          type: array
+          items:
+            type: string
+
+    FillRequest:
+      type: object
+      required:
+        - rawText
+      properties:
+        rawText:
+          type: string
+          maxLength: 50000
+          description: Raw text to extract form data from
+        ocrConfidence:
+          type: number
+          minimum: 0
+          maximum: 100
+          default: 50
+          description: Confidence level from OCR (affects extraction strategy)
+
+    SummarizeRequest:
+      type: object
+      required:
+        - text
+      properties:
+        text:
+          type: string
+          maxLength: 50000
+          description: Text to summarize
+
+    SummaryResponse:
+      type: object
+      properties:
+        summary:
+          type: string
+        keyPoints:
+          type: array
+          items:
+            type: string
+        concerns:
+          type: array
+          items:
+            type: string
+        actions:
+          type: array
+          items:
+            type: string
+
+    ExportRequest:
+      type: object
+      required:
+        - form
+      properties:
+        form:
+          $ref: '#/components/schemas/MonthlyCareCoordinationForm'
+
+    MonthlyCareCoordinationForm:
+      type: object
+      required:
+        - header
+        - careCoordinationType
+        - narrative
+        - signature
+      properties:
+        header:
+          type: object
+          properties:
+            recipientName:
+              type: string
+            date:
+              type: string
+              format: date
+            time:
+              type: string
+            recipientIdentifier:
+              type: string
+            dob:
+              type: string
+              format: date
+            location:
+              type: string
+        careCoordinationType:
+          type: object
+          properties:
+            sih:
+              type: boolean
+            hcbw:
+              type: boolean
+        narrative:
+          type: object
+          properties:
+            recipientAndVisitObservations:
+              type: string
+            healthEmotionalStatus:
+              type: string
+            reviewOfServices:
+              type: string
+            progressTowardGoals:
+              type: string
+            additionalNotes:
+              type: string
+            followUpTasks:
+              type: string
+        signature:
+          type: object
+          properties:
+            careCoordinatorName:
+              type: string
+            signature:
+              type: string
+            dateSigned:
+              type: string
+              format: date
+
+    ExtractionResult:
+      type: object
+      properties:
+        form:
+          $ref: '#/components/schemas/MonthlyCareCoordinationForm'
+        confidence:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldConfidence'
+        rawText:
+          type: string
+        extractionMethod:
+          type: string
+          enum: [ocr-only, llm-structured, llm-categorized, vision-llm, qa-llm, narrative-qa, manual]
+        ollamaAvailable:
+          type: boolean
+        keySections:
+          type: object
+          additionalProperties:
+            type: string
+        qaAnswers:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/QAAnswer'
+
+    FieldConfidence:
+      type: object
+      properties:
+        field:
+          type: string
+        confidence:
+          type: string
+          enum: [high, medium, low]
+        ocrConfidence:
+          type: number
+        source:
+          type: string
+
+    QAAnswer:
+      type: object
+      properties:
+        answer:
+          type: string
+        confidence:
+          type: string
+          enum: [high, medium, low]
+        source:
+          type: string
+
+    ProgressInfo:
+      type: object
+      properties:
+        operation:
+          type: string
+        percent:
+          type: number
+          minimum: 0
+          maximum: 100
+        message:
+          type: string
+        timestamp:
+          type: number
+        complete:
+          type: boolean
+        error:
+          type: string
+
+    ValidateRequest:
+      type: object
+      properties:
+        form:
+          type: object
+
+    ValidationResult:
+      type: object
+      properties:
+        valid:
+          type: boolean
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationIssue'
+        warnings:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationIssue'
+
+    ValidationIssue:
+      type: object
+      properties:
+        path:
+          type: string
+        message:
+          type: string
+        severity:
+          type: string
+          enum: [error, warning, info]
+        code:
+          type: string
+
+    Error:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        status:
+          type: integer
+        details:
+          type: object
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
+
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    RateLimitExceeded:
+      description: Too many requests
+      headers:
+        X-RateLimit-Limit:
+          schema:
+            type: integer
+        X-RateLimit-Remaining:
+          schema:
+            type: integer
+        X-RateLimit-Reset:
+          schema:
+            type: string
+            format: date-time
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    PayloadTooLarge:
+      description: Request body too large
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    UnsupportedMediaType:
+      description: Unsupported file type
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    ServiceUnavailable:
+      description: Service temporarily unavailable
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    GatewayTimeout:
+      description: Request timeout
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'

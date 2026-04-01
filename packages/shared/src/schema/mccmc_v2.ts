@@ -75,15 +75,27 @@ export const MonthlyCareCoordinationFormSchema = z.object({
 });
 export type MonthlyCareCoordinationForm = z.infer<typeof MonthlyCareCoordinationFormSchema>;
 
+// Q&A Answer type
+export const QAAnswerSchema = z.object({
+  answer: z.string(),
+  confidence: z.enum(['high', 'medium', 'low']),
+  source: z.string().optional(),
+});
+export type QAAnswer = z.infer<typeof QAAnswerSchema>;
+
 // Extraction result
 export const ExtractionResultSchema = z.object({
   form: MonthlyCareCoordinationFormSchema,
   confidence: z.array(FieldConfidenceSchema),
   rawText: z.string(),
-  extractionMethod: z.enum(['ocr-only', 'llm-structured', 'llm-categorized', 'vision-llm', 'manual']).default('ocr-only'),
+  extractionMethod: z.enum(['ocr-only', 'llm-structured', 'llm-categorized', 'vision-llm', 'qa-llm', 'narrative-qa', 'manual']).default('ocr-only'),
   ollamaAvailable: z.boolean().default(false),
   // NEW: OCR preview shown to user before form fill
   ocrPreview: z.string().optional(),
+  // NEW: Q&A answers for transparency
+  qaAnswers: z.record(z.string(), QAAnswerSchema).optional(),
+  // NEW: Key sections extracted from transcript
+  keySections: z.record(z.string(), z.string()).optional(),
 });
 export type ExtractionResult = z.infer<typeof ExtractionResultSchema>;
 
@@ -217,3 +229,4 @@ export const FORM_FIELDS: FieldMetadata[] = [
   { path: 'signature.signature', label: 'Signature', type: 'text', required: false, section: 'Signature', placeholder: 'Type your signature' },
   { path: 'signature.dateSigned', label: 'Date Signed', type: 'text', required: false, section: 'Signature', placeholder: 'MM/DD/YYYY' },
 ];
+

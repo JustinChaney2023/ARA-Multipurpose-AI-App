@@ -4,103 +4,103 @@
   "formName": "Monthly Care Coordination Monitoring Contact",
   "fields": {
     "header.recipientName": {
-      "pdfField": "RecipientName",
+      "pdfField": "recipientName",
       "type": "text",
       "required": true,
       "label": "Recipient Name"
     },
     "header.date": {
-      "pdfField": "Date",
+      "pdfField": "date",
       "type": "text",
       "required": true,
       "label": "Date"
     },
     "header.time": {
-      "pdfField": "Time",
+      "pdfField": "time",
       "type": "text",
       "required": false,
       "label": "Time"
     },
     "header.recipientIdentifier": {
-      "pdfField": "RecipientIdentifier",
+      "pdfField": "recipientId",
       "type": "text",
       "required": false,
       "label": "Recipient Identifier"
     },
     "header.dob": {
-      "pdfField": "DOB",
+      "pdfField": "dob",
       "type": "text",
       "required": false,
       "label": "Date of Birth"
     },
     "header.location": {
-      "pdfField": "Location",
+      "pdfField": "location",
       "type": "text",
       "required": false,
       "label": "Location"
     },
     "careCoordinationType.sih": {
-      "pdfField": "SIH",
+      "pdfField": "sih",
       "type": "checkbox",
       "required": false,
       "label": "SIH"
     },
     "careCoordinationType.hcbw": {
-      "pdfField": "HCBW",
+      "pdfField": "hcbw",
       "type": "checkbox",
       "required": false,
       "label": "HCBW"
     },
     "narrative.recipientAndVisitObservations": {
-      "pdfField": "RecipientAndVisitObservations",
+      "pdfField": "observations",
       "type": "textarea",
       "required": false,
       "label": "Recipient & Visit Observations"
     },
     "narrative.healthEmotionalStatus": {
-      "pdfField": "HealthEmotionalStatus",
+      "pdfField": "healthStatus",
       "type": "textarea",
       "required": false,
       "label": "Health/Emotional Status"
     },
     "narrative.reviewOfServices": {
-      "pdfField": "ReviewOfServices",
+      "pdfField": "servicesReview",
       "type": "textarea",
       "required": false,
       "label": "Review of Services"
     },
     "narrative.progressTowardGoals": {
-      "pdfField": "ProgressTowardGoals",
+      "pdfField": "goalsProgress",
       "type": "textarea",
       "required": false,
       "label": "Progress Toward Goals"
     },
     "narrative.additionalNotes": {
-      "pdfField": "AdditionalNotes",
+      "pdfField": "additionalNotes",
       "type": "textarea",
       "required": false,
       "label": "Additional Notes"
     },
     "narrative.followUpTasks": {
-      "pdfField": "FollowUpTasks",
+      "pdfField": "followUp",
       "type": "textarea",
       "required": false,
       "label": "Care Coordinator Follow Up Tasks"
     },
     "signature.careCoordinatorName": {
-      "pdfField": "CareCoordinatorName",
+      "pdfField": "coordinatorName",
       "type": "text",
       "required": false,
       "label": "Care Coordinator Name"
     },
     "signature.signature": {
-      "pdfField": "Signature",
+      "pdfField": "signature",
       "type": "text",
       "required": false,
       "label": "Signature"
     },
     "signature.dateSigned": {
-      "pdfField": "DateSigned",
+      "pdfField": "dateSigned",
       "type": "text",
       "required": false,
       "label": "Date Signed"

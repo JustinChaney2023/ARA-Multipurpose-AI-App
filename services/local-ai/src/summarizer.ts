@@ -1,12 +1,14 @@
 /**
  * LLM Summarizer - Creates human-readable summary of caregiver notes
- * before filling out the form
  */
 
 import { logger } from './logger.js';
-
-const OLLAMA_BASE_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
-const DEFAULT_MODEL = process.env.OLLAMA_MODEL || 'qwen2.5:0.5b';
+import { setModelBusy } from './warmup.js';
+import { 
+  DEFAULT_MODEL, 
+  OLLAMA_BASE_URL, 
+  getModelOptions
+} from './modelConfig.js';
 
 export interface SummaryResult {
   summary: string;
@@ -16,166 +18,138 @@ export interface SummaryResult {
   rawOutput: string;
 }
 
+export type ProgressCallback = (progress: { stage: string; message: string; percent: number }) => void;
+
 /**
- * Generate a human-readable summary of caregiver notes
- * This helps the user understand what was in the document before filling the form
+ * Clean and prepare input text
+ * Preserves more content for better summarization
  */
-export async function summarizeCaregiverNotes(ocrText: string): Promise<SummaryResult> {
-  logger.info('Generating summary of caregiver notes');
+function cleanInputText(text: string): string {
+  let cleaned = text
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]/g, '')
+    .replace(/\r\n/g, '\n')
+    .replace(/[ \t]+/g, ' ')
+    .trim();
   
-  const prompt = `You are a care coordinator assistant. Read these caregiver notes and create a comprehensive, detailed summary for the care team.
-
-SUMMARY REQUIREMENTS:
-1. Write a DETAILED paragraph (4-6 sentences) describing:
-   - Overall client status and demeanor
-   - Specific observations about health, behavior, and environment
-   - Any notable changes from previous visits
-   - Quality of interactions and communication
-
-2. Extract key facts as bullet points - be specific with numbers, dates, names when available
-
-3. Identify ALL concerns - health, safety, behavioral, environmental, medication, social
-
-4. List specific follow-up actions with WHO should do WHAT and BY WHEN if mentioned
-
-OUTPUT FORMAT (JSON):
-{
-  "summary": "Detailed paragraph covering client status, observations, changes, and interactions",
-  "keyPoints": [
-    "Specific fact with details",
-    "Another specific fact with details"
-  ],
-  "concerns": [
-    "Specific concern with context",
-    "Another concern with details"
-  ],
-  "actions": [
-    "Specific action item with who/when",
-    "Another action item"
-  ]
+  // Use 6000 chars for balance between completeness and speed
+  return cleaned.substring(0, 6000);
 }
 
-IMPORTANT:
-- Be thorough and detailed - include specific information from the notes
-- If there are no concerns, return empty array for "concerns"
-- If there are no actions needed, return empty array for "actions"
-- Use direct quotes from notes when helpful
+/**
+ * Generate a summary of caregiver notes - returns raw LLM output
+ */
+export async function summarizeCaregiverNotes(
+  ocrText: string,
+  onProgress?: ProgressCallback
+): Promise<SummaryResult> {
+  const startTime = Date.now();
+  logger.info('[SUMMARIZE] Starting...');
+  
+  setModelBusy(true);
+  
+  onProgress?.({ stage: 'cleaning', message: 'Preparing text...', percent: 10 });
+  
+  const cleanedText = cleanInputText(ocrText);
+  if (cleanedText.length < 10) {
+    return {
+      summary: 'Input text is too short to generate a meaningful summary.',
+      keyPoints: ['Insufficient text provided'],
+      concerns: [],
+      actions: ['Provide more detailed caregiver notes'],
+      rawOutput: 'Input too short'
+    };
+  }
+  
+  const system = `Summarize caregiver notes concisely. Include: visit overview, observations, health status, services, goals, follow-ups, concerns. Be brief but capture key info.`;
 
-CAREGIVER NOTES TO SUMMARIZE:
-${ocrText.substring(0, 4000)}
+  const prompt = `Summarize:\n"""\n${cleanedText}\n"""\n\nFormat:\n**OVERVIEW:** 2-3 sentences\n**OBSERVATIONS:** Key points\n**HEALTH:** Meds, doctor visits, behaviors\n**SERVICES:** Current services\n**GOALS:** Progress notes\n**FOLLOW-UP:** Action items\n**CONCERNS:** Any issues`;
 
-OUTPUT ONLY VALID JSON:`;
-
+  onProgress?.({ stage: 'sending', message: 'Sending to AI...', percent: 30 });
+  
   try {
+    logger.info('[SUMMARIZE] Sending request...');
+    
     const response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: DEFAULT_MODEL,
-        prompt,
+        system: system,
+        prompt: prompt,
         stream: false,
-        format: 'json',
         options: {
-          temperature: 0.3,
-          num_predict: 2500,
+          ...getModelOptions(),
+          num_predict: 4000, // Increased for comprehensive summaries
+          temperature: 0.3,  // Slightly higher for more natural language
         },
       }),
-      signal: AbortSignal.timeout(30000), // 30 second timeout for small models
+      signal: AbortSignal.timeout(120000),
     });
+    
+    onProgress?.({ stage: 'waiting', message: 'Waiting for response...', percent: 60 });
 
     if (!response.ok) {
-      throw new Error(`Summary request failed: ${response.status}`);
+      throw new Error(`HTTP ${response.status}`);
     }
+    
+    onProgress?.({ stage: 'parsing', message: 'Processing...', percent: 90 });
 
     const data = await response.json();
-    const rawOutput = data.response;
+    const rawOutput = data.response?.trim() || '';
     
-    // Parse the JSON response
-    let parsed: SummaryResult;
-    try {
-      const jsonMatch = rawOutput.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        parsed = JSON.parse(jsonMatch[0]);
-      } else {
-        parsed = JSON.parse(rawOutput);
-      }
-    } catch {
-      // Fallback if JSON parsing fails
-      logger.warn('Failed to parse summary JSON, using fallback');
-      return {
-        summary: 'Unable to generate structured summary from the provided notes.',
-        keyPoints: ['OCR text captured but summary generation failed'],
-        concerns: [],
-        actions: ['Review original OCR text manually'],
-        rawOutput: rawOutput
-      };
-    }
-    
-    logger.info('Summary generated successfully', {
-      keyPointsCount: parsed.keyPoints?.length || 0,
-      concernsCount: parsed.concerns?.length || 0,
-      actionsCount: parsed.actions?.length || 0
+    logger.info('[SUMMARIZE] Complete:', { 
+      duration: Date.now() - startTime,
+      outputLength: rawOutput.length 
     });
     
+    onProgress?.({ stage: 'complete', message: 'Done!', percent: 100 });
+    
+    setModelBusy(false);
+    
+    // Return the raw output as the summary - no parsing needed
     return {
-      summary: parsed.summary || 'No summary available',
-      keyPoints: parsed.keyPoints || [],
-      concerns: parsed.concerns || [],
-      actions: parsed.actions || [],
-      rawOutput
+      summary: rawOutput || 'No summary generated.',
+      keyPoints: [],
+      concerns: [],
+      actions: [],
+      rawOutput: rawOutput.substring(0, 4000) // Keep more for debugging
     };
     
   } catch (error) {
-    logger.error('Summary generation failed', { error });
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error('[SUMMARIZE] Failed:', { error: errorMessage });
     
-    // Return fallback summary
+    onProgress?.({ stage: 'error', message: errorMessage, percent: 100 });
+    
+    setModelBusy(false);
+    
+    if (errorMessage.includes('fetch') || errorMessage.includes('ECONNREFUSED')) {
+      return {
+        summary: 'Ollama is not running. Please start Ollama to use AI features.',
+        keyPoints: [],
+        concerns: [],
+        actions: [],
+        rawOutput: errorMessage
+      };
+    }
+    
+    if (errorMessage.includes('timeout') || errorMessage.includes('aborted')) {
+      return {
+        summary: 'AI request timed out. The model may be loading or busy.',
+        keyPoints: [],
+        concerns: [],
+        actions: [],
+        rawOutput: errorMessage
+      };
+    }
+    
     return {
-      summary: 'Summary generation failed. Please review the OCR text below.',
-      keyPoints: ['Error occurred during AI processing'],
-      concerns: ['Unable to auto-detect concerns - please review manually'],
-      actions: ['Review OCR text and fill form manually or try again'],
-      rawOutput: String(error)
+      summary: 'Summary generation failed. Please review the original text.',
+      keyPoints: [],
+      concerns: [],
+      actions: [],
+      rawOutput: errorMessage
     };
   }
-}
-
-/**
- * Format summary for display in UI
- */
-export function formatSummaryForDisplay(result: SummaryResult): string {
-  const parts: string[] = [];
-  
-  // Main summary
-  parts.push('## Summary');
-  parts.push(result.summary);
-  parts.push('');
-  
-  // Key Points
-  if (result.keyPoints.length > 0) {
-    parts.push('## Key Points');
-    result.keyPoints.forEach(point => {
-      parts.push(`• ${point}`);
-    });
-    parts.push('');
-  }
-  
-  // Concerns (highlighted)
-  if (result.concerns.length > 0) {
-    parts.push('## WARNING: Concerns');
-    result.concerns.forEach(concern => {
-      parts.push(`• ${concern}`);
-    });
-    parts.push('');
-  }
-  
-  // Actions
-  if (result.actions.length > 0) {
-    parts.push('## Follow-Up Actions');
-    result.actions.forEach(action => {
-      parts.push(`• ${action}`);
-    });
-    parts.push('');
-  }
-  
-  return parts.join('\n');
 }

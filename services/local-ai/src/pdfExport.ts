@@ -64,6 +64,7 @@ export async function fillPDFForm(
   
   for (const [formPath, fieldMapping] of Object.entries(mapping.fields)) {
     const value = getValueAtPath(form, formPath);
+    const textValue = value === undefined || value === null ? '' : String(value);
     
     try {
       if (fieldMapping.type === 'checkbox') {
@@ -76,12 +77,10 @@ export async function fillPDFForm(
         filledCount++;
       } else {
         const textField = pdfForm.getTextField(fieldMapping.pdfField);
-        const textValue = value === undefined || value === null ? '' : String(value);
         textField.setText(textValue);
         if (textValue) filledCount++;
       }
     } catch (error) {
-      // Field might not exist in PDF, log and continue
       errorCount++;
       logger.warn(`Could not fill field ${fieldMapping.pdfField}`, { error });
     }

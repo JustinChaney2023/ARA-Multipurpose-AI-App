@@ -1,15 +1,15 @@
 import { 
   createEmptyForm, 
-  validateForm,
   safeValidateForm,
   type MonthlyCareCoordinationForm,
   type FieldConfidence,
   type ConfidenceLevel,
-  FieldPath,
+  type FieldPath,
 } from '@ara/shared';
 import { generateFormWithLLM, checkOllamaHealth, markLLMFailed, isMultimodalModel } from './ollama.js';
 import { categorizeAndValidateWithLLM } from './llmCategorizer.js';
 import { logger, createProgressTracker } from './logger.js';
+import { parseLLMJSON } from './jsonUtils.js';
 
 export interface ParseResult {
   form: MonthlyCareCoordinationForm;
@@ -157,17 +157,11 @@ async function parseWithVisionLLM(
     duration
   });
   
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(llmResponse);
-  } catch {
-    const match = llmResponse.match(/```json\n?([\s\S]*?)\n?```/);
-    if (match) {
-      parsed = JSON.parse(match[1]);
-    } else {
-      throw new Error('Invalid JSON from vision LLM');
-    }
+  const parseResult = parseLLMJSON<unknown>(llmResponse);
+  if (!parseResult.success) {
+    throw new Error(`Vision LLM JSON parse failed: ${parseResult.error}`);
   }
+  const parsed = parseResult.data;
   
   progress.update(90, 'Validating LLM output');
   const validation = safeValidateForm(parsed);
@@ -210,17 +204,11 @@ async function parseWithLLM(
     duration
   });
   
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(llmResponse);
-  } catch {
-    const match = llmResponse.match(/```json\n?([\s\S]*?)\n?```/);
-    if (match) {
-      parsed = JSON.parse(match[1]);
-    } else {
-      throw new Error('Invalid JSON from LLM');
-    }
+  const parseResult = parseLLMJSON<unknown>(llmResponse);
+  if (!parseResult.success) {
+    throw new Error(`LLM JSON parse failed: ${parseResult.error}`);
   }
+  const parsed = parseResult.data;
   
   progress.update(90, 'Validating LLM output');
   const validation = safeValidateForm(parsed);

@@ -1,19 +1,94 @@
-import { useState } from 'react';
-import { type ExtractionResult, type FieldPath, type ConfidenceLevel, FORM_FIELDS } from '@ara/shared';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { type ExtractionResult, type FieldPath, type ConfidenceLevel } from '@ara/shared';
+import { useUndoRedo } from '../hooks/useUndoRedo';
+import { validateForm, autoFormatDate, autoFormatTime, applySmartDefaults, type ValidationState } from '../utils/formValidation';
+import { saveToQuickHistory } from '../utils/quickHistory';
+import { PDFPreview } from '../components/PDFPreview';
+import { QuickHistory } from '../components/QuickHistory';
+import { useKeyboardShortcuts, SHORTCUTS } from '../hooks/useKeyboardShortcuts';
 
 interface ReviewScreenProps {
   result: ExtractionResult;
   onBack: () => void;
+  onNewForm: () => void;
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
-export function ReviewScreen({ result: initialResult, onBack }: ReviewScreenProps) {
-  const [result, setResult] = useState<ExtractionResult>(initialResult);
+export function ReviewScreen({ result: initialResult, onBack, onNewForm }: ReviewScreenProps) {
+  // Undo/Redo state management
+  const { state: result, set: setResult, undo, redo, canUndo, canRedo, reset } = useUndoRedo(initialResult);
+  const [showUndoIndicator, setShowUndoIndicator] = useState(false);
+  
+  // UI State
   const [isExporting, setIsExporting] = useState(false);
-  const [exportFormat, setExportFormat] = useState<'pdf' | 'json'>('pdf');
-  const [showConfidenceInfo, setShowConfidenceInfo] = useState(true);
-  const [showOcrPreview, setShowOcrPreview] = useState(false);
+  const [exportSuccess, setExportSuccess] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [validation, setValidation] = useState<ValidationState>({ valid: true, errors: [], warnings: [] });
+  const [isValidating, setIsValidating] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [historyKey, setHistoryKey] = useState(0);
+  const [autoFixMessage, setAutoFixMessage] = useState<string | null>(null);
+  
+  // Apply smart defaults and normalize dates on first load
+  useEffect(() => {
+    const normalizeDates = async () => {
+      const updates: Partial<typeof form> = {};
+      let fixedCount = 0;
+      
+      // Normalize header dates
+      if (form.header.date) {
+        const normalizedDate = await autoFormatDate(form.header.date);
+        if (normalizedDate !== form.header.date) {
+          updates.header = { ...form.header, date: normalizedDate };
+          fixedCount++;
+        }
+      }
+      if (form.header.dob) {
+        const normalizedDob = await autoFormatDate(form.header.dob);
+        if (normalizedDob !== form.header.dob) {
+          updates.header = { ...(updates.header || form.header), dob: normalizedDob };
+          fixedCount++;
+        }
+      }
+      if (form.header.time) {
+        const normalizedTime = await autoFormatTime(form.header.time);
+        if (normalizedTime !== form.header.time) {
+          updates.header = { ...(updates.header || form.header), time: normalizedTime };
+          fixedCount++;
+        }
+      }
+      
+      // Show auto-fix message if dates were corrected
+      if (fixedCount > 0) {
+        setAutoFixMessage(`Auto-corrected ${fixedCount} date${fixedCount > 1 ? 's' : ''}`);
+        setTimeout(() => setAutoFixMessage(null), 3000);
+      }
+      
+      // Apply defaults
+      const defaults = applySmartDefaults({ ...form, ...updates } as typeof form);
+      
+      // Merge all updates
+      const finalUpdates = { ...updates, ...defaults };
+      if (Object.keys(finalUpdates).length > 0) {
+        updateFormWithDefaults(finalUpdates);
+      }
+      
+      // Initial validation
+      validateCurrentForm();
+    };
+    
+    normalizeDates();
+  }, []);
+  
+  // Validate on form changes (debounced)
+  const validationTimeout = useRef<NodeJS.Timeout>();
+  useEffect(() => {
+    validationTimeout.current = setTimeout(() => {
+      validateCurrentForm();
+    }, 500);
+    return () => clearTimeout(validationTimeout.current);
+  }, [result.form]);
 
   const form = result.form;
   const confidenceMap = new Map(result.confidence.map(c => [c.field, c]));
@@ -22,444 +97,525 @@ export function ReviewScreen({ result: initialResult, onBack }: ReviewScreenProp
     return confidenceMap.get(field)?.confidence || 'low';
   };
 
-  const updateHeader = (field: keyof typeof form.header, value: string) => {
+  const validateCurrentForm = async () => {
+    setIsValidating(true);
+    const validationResult = await validateForm(form);
+    setValidation(validationResult);
+    setIsValidating(false);
+  };
+
+  const updateField = (section: string, field: string, value: string | boolean) => {
+    setResult(prev => {
+      const newResult = { ...prev, form: { ...prev.form } };
+      (newResult.form as any)[section][field] = value;
+      return newResult;
+    });
+  };
+
+  const updateFormWithDefaults = (defaults: Partial<ExtractionResult['form']>) => {
     setResult(prev => ({
       ...prev,
-      form: {
-        ...prev.form,
-        header: { ...prev.form.header, [field]: value }
-      }
+      form: { ...prev.form, ...defaults } as typeof prev.form,
     }));
   };
 
-  const updateCareCoordinationType = (field: keyof typeof form.careCoordinationType, value: boolean) => {
-    setResult(prev => ({
-      ...prev,
-      form: {
-        ...prev.form,
-        careCoordinationType: { ...prev.form.careCoordinationType, [field]: value }
+  // Auto-format date/time on blur with immediate validation
+  const handleDateBlur = async (value: string, field: string) => {
+    const formatted = await autoFormatDate(value);
+    if (formatted !== value && formatted) {
+      updateField('header', field, formatted);
+      // Show auto-fix message
+      setAutoFixMessage(`Date corrected to ${formatted}`);
+      setTimeout(() => setAutoFixMessage(null), 3000);
+      // Re-validate after format
+      setTimeout(() => validateCurrentForm(), 0);
+    }
+  };
+
+  const handleTimeBlur = async (value: string) => {
+    const formatted = await autoFormatTime(value);
+    if (formatted !== value && formatted) {
+      updateField('header', 'time', formatted);
+    }
+  };
+
+  // Smart date input handler - formats common patterns as user types
+  const handleDateChange = (value: string, field: string) => {
+    // Auto-format if it looks like a complete date
+    const looksLikeDate = /^\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}$/.test(value);
+    if (looksLikeDate) {
+      autoFormatDate(value).then(formatted => {
+        if (formatted !== value && formatted) {
+          updateField('header', field, formatted);
+          return;
+        }
+      });
+    }
+    updateField('header', field, value);
+  };
+
+  // Undo/Redo with visual feedback
+  const handleUndo = useCallback(() => {
+    undo();
+    setShowUndoIndicator(true);
+    setTimeout(() => setShowUndoIndicator(false), 1000);
+  }, [undo]);
+
+  const handleRedo = useCallback(() => {
+    redo();
+  }, [redo]);
+
+  // Reset to original AI extraction
+  const handleReset = () => {
+    reset(initialResult);
+    setShowResetConfirm(false);
+  };
+
+  const handleExportPDF = useCallback(async () => {
+    // Validate before export
+    const validationResult = await validateForm(form);
+    setValidation(validationResult);
+    
+    if (!validationResult.valid) {
+      // Scroll to first error
+      const firstError = validationResult.errors[0];
+      if (firstError) {
+        const element = document.querySelector(`[data-field="${firstError.field}"]`);
+        element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
-    }));
-  };
+      return;
+    }
 
-  const updateNarrative = (field: keyof typeof form.narrative, value: string) => {
-    setResult(prev => ({
-      ...prev,
-      form: {
-        ...prev.form,
-        narrative: { ...prev.form.narrative, [field]: value }
-      }
-    }));
-  };
-
-  const updateSignature = (field: keyof typeof form.signature, value: string) => {
-    setResult(prev => ({
-      ...prev,
-      form: {
-        ...prev.form,
-        signature: { ...prev.form.signature, [field]: value }
-      }
-    }));
-  };
-
-  const handleExportJSON = () => {
-    const blob = new Blob([JSON.stringify(result.form, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `care-coordination-form-${form.header.date || 'draft'}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const handleExportPDF = async () => {
     setIsExporting(true);
+    setExportSuccess(false);
     
     try {
       const response = await fetch(`${API_BASE_URL}/export/pdf`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ form, templateVersion: 'mccmc_v2' }),
+        body: JSON.stringify({ form }),
       });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Export failed');
-      }
-
+      
+      if (!response.ok) throw new Error('Export failed');
+      
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `care-coordination-form-${form.header.date || 'draft'}.pdf`;
-      a.click();
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `care-form-${form.header.recipientName || 'draft'}-${form.header.date || new Date().toISOString().split('T')[0]}.pdf`;
+      anchor.click();
       URL.revokeObjectURL(url);
+      
+      setExportSuccess(true);
+      setTimeout(() => setExportSuccess(false), 3000);
+      
+      // Save to history on successful export
+      saveToQuickHistory(result);
+      setHistoryKey(prev => prev + 1);
     } catch (error) {
-      alert(`Export failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      alert('Export failed. Please try again.');
     } finally {
       setIsExporting(false);
     }
-  };
+  }, [form, validation.valid]);
 
-  const handleExport = () => {
-    if (exportFormat === 'pdf') {
-      handleExportPDF();
-    } else {
-      handleExportJSON();
-    }
-  };
+  // Keyboard shortcuts (must be after function definitions)
+  useKeyboardShortcuts([
+    { ...SHORTCUTS.undo, handler: handleUndo, preventDefault: true },
+    { ...SHORTCUTS.redo, handler: handleRedo, preventDefault: true },
+    { ...SHORTCUTS.new, handler: onNewForm },
+    { ...SHORTCUTS.export, handler: handleExportPDF },
+    { ...SHORTCUTS.preview, handler: () => setShowPreview(true) },
+    { ...SHORTCUTS.back, handler: onBack },
+  ]);
 
-  const ConfidenceBadge = ({ level }: { level: ConfidenceLevel }) => (
-    <span className={`confidence-badge ${level}`}>
-      {level === 'high' ? 'OK High' : level === 'medium' ? '~ Medium' : '! Low'}
-    </span>
-  );
+  // Calculate completion stats
+  const headerFields = Object.values(form.header).filter(Boolean).length;
+  const narrativeFields = Object.values(form.narrative).filter(v => v && v.length > 20).length;
+  const totalFields = 6 + 6;
+  const completionPercent = Math.round(((headerFields + narrativeFields) / totalFields) * 100);
 
-  const FieldWrapper = ({ field, children, showConfidence = true }: { field: FieldPath; children: React.ReactNode; showConfidence?: boolean }) => {
-    const confidence = getConfidence(field);
+  const ConfidenceDot = ({ field }: { field: FieldPath }) => {
+    const level = getConfidence(field);
+    const colors = { high: '#22c55e', medium: '#f59e0b', low: '#ef4444' };
     return (
-      <div className={`form-group confidence-${confidence}`}>
-        {showConfidence && showConfidenceInfo && (
-          <div style={{ marginBottom: '0.375rem' }}>
-            <ConfidenceBadge level={confidence} />
-          </div>
-        )}
-        {children}
-      </div>
+      <span 
+        title={`${level} confidence`}
+        style={{ 
+          display: 'inline-block',
+          width: 6, 
+          height: 6, 
+          borderRadius: '50%', 
+          background: colors[level],
+          marginLeft: '0.5rem',
+        }} 
+      />
     );
   };
 
-  const getFieldMetadata = (path: FieldPath) => FORM_FIELDS.find(f => f.path === path);
+  const ValidationIndicator = ({ field }: { field: FieldPath }) => {
+    const error = validation.errors.find(e => e.field === field);
+    if (error) {
+      return <span style={{ color: '#dc2626', fontSize: '0.75rem', marginLeft: '0.5rem' }}>✗ {error.message}</span>;
+    }
+    const warning = validation.warnings.find(w => w.field === field);
+    if (warning) {
+      return <span style={{ color: '#f59e0b', fontSize: '0.75rem', marginLeft: '0.5rem' }}>⚠ {warning.message}</span>;
+    }
+    return null;
+  };
 
   return (
     <div className="screen">
-      {/* Extraction Info */}
-      <div className="card" style={{ 
-        background: result.extractionMethod === 'vision-llm' ? '#f0fdf4' : 
-                   result.extractionMethod === 'llm-categorized' ? '#eff6ff' :
-                   result.extractionMethod === 'manual' ? '#f3f4f6' : '#fefce8' 
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-          <div>
-            <h3 style={{ fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.25rem' }}>
-              {result.extractionMethod === 'manual' ? 'Manual Entry' :
-               result.extractionMethod === 'vision-llm' ? 'Vision AI' :
-               result.extractionMethod === 'llm-categorized' ? 'AI Categorized' :
-               result.extractionMethod === 'llm-structured' ? 'AI Enhanced' :
-               'OCR Only'}
-            </h3>
-            <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-              {result.extractionMethod === 'manual' 
-                ? 'Form started empty. Fill in the fields manually.'
-                : 'Review and edit the AI-extracted fields below.'}
-            </p>
-          </div>
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', cursor: 'pointer' }}>
-              <input 
-                type="checkbox" 
-                checked={showConfidenceInfo}
-                onChange={e => setShowConfidenceInfo(e.target.checked)}
-              />
-              Show confidence
-            </label>
-            <button 
-              className="btn btn-secondary" 
-              onClick={() => setShowOcrPreview(!showOcrPreview)}
-              style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
-            >
-              {showOcrPreview ? 'Hide' : 'Show'} OCR Text
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* OCR Preview (collapsible) */}
-      {showOcrPreview && result.rawText && (
-        <div className="card" style={{ background: '#f8fafc' }}>
-          <h2 className="card-title">Original OCR Text</h2>
+      {/* PDF Preview Modal */}
+      <PDFPreview form={form} isOpen={showPreview} onClose={() => setShowPreview(false)} />
+      
+      {/* Reset Confirmation */}
+      {showResetConfirm && (
+        <div 
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+          }}
+          onClick={() => setShowResetConfirm(false)}
+        >
           <div 
-            style={{ 
-              background: 'white', 
-              padding: '1rem', 
-              borderRadius: '8px',
-              fontFamily: 'monospace',
-              fontSize: '0.8rem',
-              whiteSpace: 'pre-wrap',
-              maxHeight: '300px',
-              overflow: 'auto',
-              border: '1px solid var(--color-border)'
-            }}
+            className="card"
+            style={{ maxWidth: '400px', margin: '1rem' }}
+            onClick={e => e.stopPropagation()}
           >
-            {result.rawText}
+            <h3>Reset to AI Extraction?</h3>
+            <p style={{ color: 'var(--color-text-muted)' }}>
+              This will discard all your edits and restore the original AI-extracted values.
+            </p>
+            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem' }}>
+              <button className="btn btn-secondary" onClick={() => setShowResetConfirm(false)}>
+                Cancel
+              </button>
+              <button className="btn btn-primary" onClick={handleReset} style={{ background: '#dc2626' }}>
+                Reset Form
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Header Fields */}
-      <div className="card">
-        <h2 className="card-title">Header Information</h2>
+      {/* Quick History */}
+      <QuickHistory 
+        key={historyKey}
+        onSelect={(item) => {
+          // Could load historical data here
+          console.log('Selected history item:', item);
+        }}
+      />
+
+      {/* Header with actions */}
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center',
+        marginBottom: '1.5rem',
+        flexWrap: 'wrap',
+        gap: '1rem',
+      }}>
+        <div>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Review Form</h2>
+          <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem', margin: 0 }}>
+            {completionPercent}% complete • {isValidating ? 'Validating...' : validation.valid ? 'Ready to export' : 'Fix errors to export'}
+          </p>
+        </div>
+        
+        {/* Toolbar */}
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          {/* Undo/Redo */}
+          <button 
+            className="btn btn-secondary" 
+            onClick={handleUndo}
+            disabled={!canUndo}
+            title="Undo (Ctrl+Z)"
+            style={{ padding: '0.5rem 0.75rem' }}
+          >
+            ↩ Undo
+          </button>
+          <button 
+            className="btn btn-secondary" 
+            onClick={handleRedo}
+            disabled={!canRedo}
+            title="Redo (Ctrl+Y)"
+            style={{ padding: '0.5rem 0.75rem' }}
+          >
+            ↪ Redo
+          </button>
+          
+          {/* Reset */}
+          <button 
+            className="btn btn-secondary" 
+            onClick={() => setShowResetConfirm(true)}
+            title="Reset to AI extraction"
+            style={{ padding: '0.5rem 0.75rem' }}
+          >
+            ↺ Reset
+          </button>
+          
+          <div style={{ width: 1, background: 'var(--color-border)', margin: '0 0.25rem' }} />
+          
+          <button className="btn btn-secondary" onClick={onBack}>
+            ← Back
+          </button>
+          <button 
+            className="btn btn-secondary" 
+            onClick={() => setShowPreview(true)}
+          >
+            👁 Preview
+          </button>
+        </div>
+      </div>
+
+      {/* Validation Summary */}
+      {!validation.valid && (
+        <div className="card" style={{ background: '#fef2f2', borderColor: '#fecaca' }}>
+          <h4 style={{ color: '#dc2626', margin: '0 0 0.5rem' }}>⚠️ Required Fields Missing</h4>
+          <ul style={{ margin: 0, paddingLeft: '1.25rem', color: '#991b1b' }}>
+            {validation.errors.map(e => (
+              <li key={e.field}>{e.message}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Success message */}
+      {exportSuccess && (
+        <div className="card" style={{ background: '#dcfce7', borderColor: '#86efac' }}>
+          <p style={{ color: '#166534', margin: 0 }}>✓ PDF exported successfully!</p>
+        </div>
+      )}
+
+      {/* Auto-fix indicator */}
+      {autoFixMessage && (
+        <div className="card" style={{ background: '#eff6ff', borderColor: '#bfdbfe' }}>
+          <p style={{ color: '#1e40af', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span>✨</span> {autoFixMessage}
+          </p>
+        </div>
+      )}
+
+      {/* Undo indicator */}
+      {showUndoIndicator && (
+        <div style={{
+          position: 'fixed',
+          bottom: '1rem',
+          right: '1rem',
+          background: '#1e293b',
+          color: 'white',
+          padding: '0.5rem 1rem',
+          borderRadius: '6px',
+          fontSize: '0.875rem',
+          zIndex: 100,
+          animation: 'fadeIn 0.2s',
+        }}>
+          Undone
+        </div>
+      )}
+
+      {/* Header Section */}
+      <section className="card">
+        <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem', display: 'flex', alignItems: 'center' }}>
+          Client Information
+          <ConfidenceDot field="header.recipientName" />
+        </h3>
         <div className="form-grid">
-          <FieldWrapper field="header.recipientName">
-            <label className="form-label">{getFieldMetadata('header.recipientName')?.label}</label>
+          <div className="form-group" data-field="header.recipientName">
+            <label className="form-label">
+              Recipient Name *
+              <ValidationIndicator field="header.recipientName" />
+            </label>
             <input
               type="text"
               className="form-input"
               value={form.header.recipientName}
-              onChange={e => updateHeader('recipientName', e.target.value)}
-              placeholder={getFieldMetadata('header.recipientName')?.placeholder}
+              onChange={e => updateField('header', 'recipientName', e.target.value)}
+              placeholder="Client name"
+              style={{ borderColor: validation.errors.find(e => e.field === 'header.recipientName') ? '#dc2626' : undefined }}
             />
-          </FieldWrapper>
-          <FieldWrapper field="header.date">
-            <label className="form-label">{getFieldMetadata('header.date')?.label}</label>
+          </div>
+          
+          <div className="form-group" data-field="header.date">
+            <label className="form-label">
+              Date *
+              <ValidationIndicator field="header.date" />
+            </label>
             <input
               type="text"
               className="form-input"
               value={form.header.date}
-              onChange={e => updateHeader('date', e.target.value)}
-              placeholder={getFieldMetadata('header.date')?.placeholder}
+              onChange={e => handleDateChange(e.target.value, 'date')}
+              onBlur={e => handleDateBlur(e.target.value, 'date')}
+              placeholder="MM/DD/YYYY or 2024-03-15"
+              style={{ borderColor: validation.errors.find(e => e.field === 'header.date') ? '#dc2626' : undefined }}
             />
-          </FieldWrapper>
-          <FieldWrapper field="header.time">
-            <label className="form-label">{getFieldMetadata('header.time')?.label}</label>
+            <small style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem' }}>
+              Auto-corrects any format → MM/DD/YYYY
+            </small>
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">Time</label>
             <input
               type="text"
               className="form-input"
               value={form.header.time}
-              onChange={e => updateHeader('time', e.target.value)}
-              placeholder={getFieldMetadata('header.time')?.placeholder}
+              onChange={e => updateField('header', 'time', e.target.value)}
+              onBlur={e => handleTimeBlur(e.target.value)}
+              placeholder="HH:MM"
             />
-          </FieldWrapper>
-          <FieldWrapper field="header.recipientIdentifier">
-            <label className="form-label">{getFieldMetadata('header.recipientIdentifier')?.label}</label>
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">ID Number</label>
             <input
               type="text"
               className="form-input"
               value={form.header.recipientIdentifier}
-              onChange={e => updateHeader('recipientIdentifier', e.target.value)}
-              placeholder={getFieldMetadata('header.recipientIdentifier')?.placeholder}
+              onChange={e => updateField('header', 'recipientIdentifier', e.target.value)}
+              placeholder="Client ID"
             />
-          </FieldWrapper>
-          <FieldWrapper field="header.dob">
-            <label className="form-label">{getFieldMetadata('header.dob')?.label}</label>
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">Date of Birth</label>
             <input
               type="text"
               className="form-input"
               value={form.header.dob}
-              onChange={e => updateHeader('dob', e.target.value)}
-              placeholder={getFieldMetadata('header.dob')?.placeholder}
+              onChange={e => handleDateChange(e.target.value, 'dob')}
+              onBlur={e => handleDateBlur(e.target.value, 'dob')}
+              placeholder="MM/DD/YYYY or 1950-01-15"
             />
-          </FieldWrapper>
-          <FieldWrapper field="header.location">
-            <label className="form-label">{getFieldMetadata('header.location')?.label}</label>
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">Location</label>
             <input
               type="text"
               className="form-input"
               value={form.header.location}
-              onChange={e => updateHeader('location', e.target.value)}
-              placeholder={getFieldMetadata('header.location')?.placeholder}
+              onChange={e => updateField('header', 'location', e.target.value)}
+              placeholder="Home, Office, etc."
             />
-          </FieldWrapper>
+          </div>
         </div>
-      </div>
+      </section>
 
-      {/* Care Coordination Type */}
-      <div className="card">
-        <h2 className="card-title">Care Coordination Type</h2>
-        <div className="checkbox-group">
-          <FieldWrapper field="careCoordinationType.sih" showConfidence={false}>
-            <label className="checkbox-label">
-              <input
-                type="checkbox"
-                checked={form.careCoordinationType.sih}
-                onChange={e => updateCareCoordinationType('sih', e.target.checked)}
-              />
-              SIH
-            </label>
-          </FieldWrapper>
-          <FieldWrapper field="careCoordinationType.hcbw" showConfidence={false}>
-            <label className="checkbox-label">
-              <input
-                type="checkbox"
-                checked={form.careCoordinationType.hcbw}
-                onChange={e => updateCareCoordinationType('hcbw', e.target.checked)}
-              />
-              HCBW
-            </label>
-          </FieldWrapper>
+      {/* Care Type */}
+      <section className="card">
+        <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem' }}>Care Coordination Type</h3>
+        <div style={{ display: 'flex', gap: '1.5rem' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+            <input 
+              type="checkbox" 
+              checked={form.careCoordinationType.sih}
+              onChange={e => updateField('careCoordinationType', 'sih', e.target.checked)}
+            />
+            SIH (Senior In-Home)
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+            <input 
+              type="checkbox" 
+              checked={form.careCoordinationType.hcbw}
+              onChange={e => updateField('careCoordinationType', 'hcbw', e.target.checked)}
+            />
+            HCBW (Home and Community-Based Waiver)
+          </label>
         </div>
-      </div>
+      </section>
 
       {/* Narrative Sections */}
-      <FieldWrapper field="narrative.recipientAndVisitObservations">
-        <div className="card">
-          <h2 className="card-title">{getFieldMetadata('narrative.recipientAndVisitObservations')?.label}</h2>
-          <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>
-            What are they doing, communicating, any concerns regarding home/site status, misc. information, etc.
-          </p>
+      {[
+        { key: 'recipientAndVisitObservations', title: 'Recipient & Visit Observations', field: 'narrative.recipientAndVisitObservations' as FieldPath },
+        { key: 'healthEmotionalStatus', title: 'Health/Emotional Status', field: 'narrative.healthEmotionalStatus' as FieldPath },
+        { key: 'reviewOfServices', title: 'Review of Services', field: 'narrative.reviewOfServices' as FieldPath },
+        { key: 'progressTowardGoals', title: 'Progress Toward Goals', field: 'narrative.progressTowardGoals' as FieldPath },
+        { key: 'followUpTasks', title: 'Follow Up Tasks', field: 'narrative.followUpTasks' as FieldPath },
+        { key: 'additionalNotes', title: 'Additional Notes', field: 'narrative.additionalNotes' as FieldPath },
+      ].map(({ key, title, field }) => (
+        <section key={key} className="card" data-field={field}>
+          <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.75rem', display: 'flex', alignItems: 'center' }}>
+            {title}
+            <ConfidenceDot field={field} />
+            <ValidationIndicator field={field} />
+          </h3>
           <textarea
             className="form-textarea"
-            value={form.narrative.recipientAndVisitObservations}
-            onChange={e => updateNarrative('recipientAndVisitObservations', e.target.value)}
-            placeholder={getFieldMetadata('narrative.recipientAndVisitObservations')?.placeholder}
+            value={(form.narrative as any)[key]}
+            onChange={e => updateField('narrative', key, e.target.value)}
+            rows={4}
+            placeholder={`Enter ${title.toLowerCase()}...`}
+            style={{ borderColor: validation.warnings.find(w => w.field === field) ? '#f59e0b' : undefined }}
           />
-        </div>
-      </FieldWrapper>
+        </section>
+      ))}
 
-      <FieldWrapper field="narrative.healthEmotionalStatus">
-        <div className="card">
-          <h2 className="card-title">Health/Emotional Status</h2>
-          <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>
-            Med Changes, Doctor Visits, Behavior Changes, Critical Incidents, Falls, Hospital/Urgent Care Visits, etc.
-          </p>
-          <textarea
-            className="form-textarea"
-            value={form.narrative.healthEmotionalStatus}
-            onChange={e => updateNarrative('healthEmotionalStatus', e.target.value)}
-            placeholder={getFieldMetadata('narrative.healthEmotionalStatus')?.placeholder}
-          />
-        </div>
-      </FieldWrapper>
-
-      <FieldWrapper field="narrative.reviewOfServices">
-        <div className="card">
-          <h2 className="card-title">{getFieldMetadata('narrative.reviewOfServices')?.label}</h2>
-          <textarea
-            className="form-textarea"
-            value={form.narrative.reviewOfServices}
-            onChange={e => updateNarrative('reviewOfServices', e.target.value)}
-            placeholder={getFieldMetadata('narrative.reviewOfServices')?.placeholder}
-          />
-        </div>
-      </FieldWrapper>
-
-      <FieldWrapper field="narrative.progressTowardGoals">
-        <div className="card">
-          <h2 className="card-title">{getFieldMetadata('narrative.progressTowardGoals')?.label}</h2>
-          <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>
-            How is the recipient doing on their goals? Are current goals supporting the recipient? Any changes needed?
-          </p>
-          <textarea
-            className="form-textarea"
-            value={form.narrative.progressTowardGoals}
-            onChange={e => updateNarrative('progressTowardGoals', e.target.value)}
-            placeholder={getFieldMetadata('narrative.progressTowardGoals')?.placeholder}
-          />
-        </div>
-      </FieldWrapper>
-
-      <FieldWrapper field="narrative.additionalNotes">
-        <div className="card">
-          <h2 className="card-title">{getFieldMetadata('narrative.additionalNotes')?.label}</h2>
-          <textarea
-            className="form-textarea"
-            value={form.narrative.additionalNotes}
-            onChange={e => updateNarrative('additionalNotes', e.target.value)}
-            placeholder={getFieldMetadata('narrative.additionalNotes')?.placeholder}
-          />
-        </div>
-      </FieldWrapper>
-
-      <FieldWrapper field="narrative.followUpTasks">
-        <div className="card">
-          <h2 className="card-title">{getFieldMetadata('narrative.followUpTasks')?.label}</h2>
-          <textarea
-            className="form-textarea"
-            value={form.narrative.followUpTasks}
-            onChange={e => updateNarrative('followUpTasks', e.target.value)}
-            placeholder={getFieldMetadata('narrative.followUpTasks')?.placeholder}
-          />
-        </div>
-      </FieldWrapper>
-
-      {/* Signature Section */}
-      <div className="card" style={{ background: '#fafaf9' }}>
-        <h2 className="card-title">Signature</h2>
+      {/* Signature */}
+      <section className="card" style={{ background: '#fafaf9' }}>
+        <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem' }}>Signature</h3>
         <div className="form-grid">
-          <FieldWrapper field="signature.careCoordinatorName">
-            <label className="form-label">{getFieldMetadata('signature.careCoordinatorName')?.label}</label>
+          <div className="form-group">
+            <label className="form-label">Care Coordinator Name</label>
             <input
               type="text"
               className="form-input"
               value={form.signature.careCoordinatorName}
-              onChange={e => updateSignature('careCoordinatorName', e.target.value)}
-              placeholder={getFieldMetadata('signature.careCoordinatorName')?.placeholder}
+              onChange={e => updateField('signature', 'careCoordinatorName', e.target.value)}
+              placeholder="Your name"
             />
-          </FieldWrapper>
-          <FieldWrapper field="signature.signature">
-            <label className="form-label">{getFieldMetadata('signature.signature')?.label}</label>
-            <input
-              type="text"
-              className="form-input"
-              value={form.signature.signature}
-              onChange={e => updateSignature('signature', e.target.value)}
-              placeholder={getFieldMetadata('signature.signature')?.placeholder}
-            />
-          </FieldWrapper>
-          <FieldWrapper field="signature.dateSigned">
-            <label className="form-label">{getFieldMetadata('signature.dateSigned')?.label}</label>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Date Signed</label>
             <input
               type="text"
               className="form-input"
               value={form.signature.dateSigned}
-              onChange={e => updateSignature('dateSigned', e.target.value)}
-              placeholder={getFieldMetadata('signature.dateSigned')?.placeholder}
+              onChange={e => updateField('signature', 'dateSigned', e.target.value)}
+              onBlur={e => handleDateBlur(e.target.value, 'dateSigned')}
+              placeholder="MM/DD/YYYY"
             />
-          </FieldWrapper>
+          </div>
         </div>
-      </div>
+      </section>
 
-      {/* Actions */}
-      <div className="card" style={{ background: '#f0f9ff' }}>
-        <h2 className="card-title">Export Form</h2>
-        
-        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-            <input
-              type="radio"
-              name="exportFormat"
-              value="pdf"
-              checked={exportFormat === 'pdf'}
-              onChange={() => setExportFormat('pdf')}
-            />
-            Fillable PDF
-          </label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-            <input
-              type="radio"
-              name="exportFormat"
-              value="json"
-              checked={exportFormat === 'json'}
-              onChange={() => setExportFormat('json')}
-            />
-            JSON Data
-          </label>
-        </div>
-
-        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-          <button className="btn btn-secondary" onClick={onBack}>
-            &lt;- Back to Import
+      {/* Bottom Actions */}
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '1rem 0',
+        borderTop: '1px solid var(--color-border)',
+        marginTop: '1rem',
+      }}>
+        <button className="btn btn-secondary" onClick={onNewForm}>
+          ➕ New Form
+        </button>
+        <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <button 
+            className="btn btn-secondary" 
+            onClick={() => setShowPreview(true)}
+          >
+            👁 Preview
           </button>
           <button 
             className="btn btn-primary" 
-            onClick={handleExport}
-            disabled={isExporting}
+            onClick={handleExportPDF}
+            disabled={isExporting || !validation.valid}
+            style={{ minWidth: '150px' }}
           >
-            {isExporting ? (
-              <>
-                <span className="spinner" />
-                Exporting...
-              </>
-            ) : (
-              `Export as ${exportFormat.toUpperCase()}`
-            )}
+            {isExporting ? 'Exporting...' : !validation.valid ? 'Fix Errors to Export' : '📄 Export PDF'}
           </button>
         </div>
-      </div>
-
-      <div className="status info" style={{ marginTop: '1rem' }}>
-        <strong>Review all fields before exporting.</strong> Fields with yellow/red borders may need extra attention.
-        {result.extractionMethod === 'ocr-only' && ' OCR-only mode: Please verify all extracted values carefully.'}
       </div>
     </div>
   );

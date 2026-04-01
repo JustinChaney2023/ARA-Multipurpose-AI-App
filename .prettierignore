@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Build outputs
+dist/
+build/
+out/
+
+# Lock files
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Coverage
+coverage/
+
+# Tauri
+apps/desktop/src-tauri/target/
+
+# Generated files
+*.generated.ts
+
+# Minified files
+*.min.js
+*.min.css
+
+# Large data files
+*.pdf
+*. traineddata
+
+# Uploads
+uploads/
+temp/

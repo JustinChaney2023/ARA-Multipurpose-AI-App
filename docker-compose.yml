@@ -1,0 +1,105 @@
+version: '3.8'
+
+services:
+  # ==========================================================================
+  # ARA Local AI Service
+  # ==========================================================================
+  local-ai:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: ara-local-ai
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - LOG_LEVEL=info
+      - OLLAMA_URL=http://ollama:11434
+      - OLLAMA_MODEL=qwen3:4b
+      - DISABLE_LLM=false
+      - OCR_CONFIDENCE_THRESHOLD=50
+      - MAX_FILE_SIZE=52428800
+    volumes:
+      - uploads:/app/uploads
+    networks:
+      - ara-network
+    depends_on:
+      - ollama
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ==========================================================================
+  # Ollama (LLM Service)
+  # ==========================================================================
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ara-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    networks:
+      - ara-network
+    # GPU support (uncomment if you have NVIDIA GPU)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+  # ==========================================================================
+  # Ollama Model Pull (one-time setup)
+  # ==========================================================================
+  ollama-pull:
+    image: ollama/ollama:latest
+    container_name: ara-ollama-pull
+    entrypoint: >
+      sh -c "
+        sleep 10 &&
+        echo 'Pulling Qwen3 4B model...' &&
+        ollama pull qwen3:4b &&
+        echo 'Model pulled successfully'
+      "
+    networks:
+      - ara-network
+    depends_on:
+      - ollama
+    restart: "no"
+
+  # ==========================================================================
+  # Frontend (Desktop/Web) - Development only
+  # ==========================================================================
+  # Uncomment for web development with Docker
+  # frontend:
+  #   build:
+  #     context: .
+  #     dockerfile: apps/desktop/Dockerfile
+  #   container_name: ara-frontend
+  #   ports:
+  #     - "1420:1420"
+  #   environment:
+  #     - VITE_API_URL=http://localhost:3001
+  #   networks:
+  #     - ara-network
+  #   depends_on:
+  #     - local-ai
+
+volumes:
+  uploads:
+    driver: local
+  ollama-data:
+    driver: local
+
+networks:
+  ara-network:
+    driver: bridge

@@ -9,21 +9,58 @@
     "packages/*"
   ],
   "scripts": {
+    "prepare": "husky install",
+    "setup": "node scripts/setup.js",
+    "setup:win": "powershell -ExecutionPolicy Bypass -File scripts/setup.ps1",
+    "setup:mac": "bash scripts/setup.sh",
+    "setup:linux": "bash scripts/setup.sh",
+    "setup:ollama": "bash scripts/setup-qwen3.sh",
+    "setup:ollama:win": "powershell -ExecutionPolicy Bypass -File scripts/setup-qwen3.ps1",
     "verify": "node scripts/verify.js",
     "dev:service": "npm run -w services/local-ai dev",
     "dev:desktop": "npm run -w apps/desktop tauri dev",
     "dev:web": "npm run -w apps/desktop dev:web",
-    "setup:ollama": "ollama pull qwen:4b",
     "build": "npm run build --workspaces",
     "build:desktop": "npm run -w apps/desktop tauri build",
-    "test": "npm run test --workspaces"
+    "test": "npm run test --workspaces",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint . --ext .ts,.tsx",
+    "lint:fix": "eslint . --ext .ts,.tsx --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc --noEmit",
+    "ci": "npm run lint && npm run typecheck && npm run test",
+    "clean": "rm -rf node_modules apps/*/node_modules services/*/node_modules packages/*/node_modules apps/desktop/src-tauri/target dist build packages/shared/dist services/local-ai/dist 2>/dev/null || rd /s /q node_modules apps\desktop\node_modules services\local-ai\node_modules packages\shared\node_modules 2>nul || echo Cleaned",
+    "docker:build": "docker-compose build",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f local-ai"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "@vitest/coverage-v8": "^1.2.0",
+    "eslint": "^8.55.0",
+    "eslint-plugin-import": "^2.29.0",
+    "eslint-plugin-react": "^7.33.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "husky": "^8.0.3",
+    "lint-staged": "^15.2.0",
+    "prettier": "^3.1.0",
     "typescript": "^5.3.0",
     "vitest": "^1.2.0"
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yaml,yml}": [
+      "prettier --write"
+    ]
   }
 }
