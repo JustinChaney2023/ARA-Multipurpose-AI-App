@@ -155,8 +155,8 @@ interface ExtendedFieldMetadata extends FieldMetadata {
 
 export const FIELD_METADATA: Record<FieldPath, ExtendedFieldMetadata> = {
   // Header fields
-  'header.recipientName': { path: 'header.recipientName', label: 'Recipient Name', type: 'text', required: true, section: 'header', fieldType: 'string' },
-  'header.date': { path: 'header.date', label: 'Date', type: 'text', required: true, section: 'header', fieldType: 'string' },
+  'header.recipientName': { path: 'header.recipientName', label: 'Recipient Name', type: 'text', required: false, section: 'header', fieldType: 'string' },
+  'header.date': { path: 'header.date', label: 'Date', type: 'text', required: false, section: 'header', fieldType: 'string' },
   'header.time': { path: 'header.time', label: 'Time', type: 'text', required: false, section: 'header', fieldType: 'string' },
   'header.recipientIdentifier': { path: 'header.recipientIdentifier', label: 'Recipient ID', type: 'text', required: false, section: 'header', fieldType: 'string' },
   'header.dob': { path: 'header.dob', label: 'Date of Birth', type: 'text', required: false, section: 'header', fieldType: 'string' },

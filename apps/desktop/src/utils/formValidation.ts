@@ -31,37 +31,36 @@ export async function validateForm(form: ExtractionResult['form']): Promise<Vali
 function clientSideValidation(form: ExtractionResult['form']): ValidationState {
   const errors: ValidationError[] = [];
   const warnings: ValidationError[] = [];
-  
+
   if (!form.header.recipientName?.trim()) {
-    errors.push({
+    warnings.push({
       field: 'header.recipientName',
-      message: 'Recipient name is required',
-      severity: 'error',
+      message: 'Recipient name not yet entered',
+      severity: 'warning',
     });
   }
-  
-  if (!form.header.date?.trim()) {
-    errors.push({
-      field: 'header.date',
-      message: 'Date is required',
-      severity: 'error',
-    });
-  } else {
-    // More lenient date validation - accepts various formats
-    // MM/DD/YYYY, M/D/YYYY, YYYY-MM-DD, YYYY/MM/DD, MMDDYYYY, etc.
+
+  if (form.header.date?.trim()) {
+    // Validate format only when a value is present
     const datePatterns = [
-      /^\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}$/,     // M/D/YYYY, MM-DD-YY
-      /^\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}$/,         // YYYY-MM-DD, YYYY/MM/DD
-      /^\d{8}$/,                                       // MMDDYYYY
+      /^\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}$/,
+      /^\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}$/,
+      /^\d{8}$/,
     ];
     const isValidFormat = datePatterns.some(pattern => pattern.test(form.header.date));
     if (!isValidFormat) {
-      errors.push({
+      warnings.push({
         field: 'header.date',
         message: 'Use date format like MM/DD/YYYY or 2024-03-15',
-        severity: 'error',
+        severity: 'warning',
       });
     }
+  } else {
+    warnings.push({
+      field: 'header.date',
+      message: 'Date not yet entered',
+      severity: 'warning',
+    });
   }
   
   // Check DOB format if provided
@@ -329,16 +328,11 @@ export async function autoFormatTime(value: string): Promise<string> {
 // Smart defaults
 export function applySmartDefaults(form: ExtractionResult['form']): Partial<ExtractionResult['form']> {
   const updates: Partial<ExtractionResult['form']> = {};
-  
-  // Copy date to dateSigned
-  if (form.header.date && !form.signature.dateSigned) {
-    updates.signature = { ...form.signature, dateSigned: form.header.date };
-  }
-  
+
   // Default location
   if (!form.header.location) {
     updates.header = { ...form.header, location: 'Home' };
   }
-  
+
   return updates;
 }

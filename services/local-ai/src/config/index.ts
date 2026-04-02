@@ -22,12 +22,43 @@ const ConfigSchema = z.object({
   ollama: z.object({
     baseUrl: z.string().url().default('http://localhost:11434'),
     model: z.string().default('qwen2.5:0.5b'),
-    timeout: z.number().default(120000), // 120s default
-    visionTimeout: z.number().default(180000), // 3min for vision
+    timeout: z.number().default(60000), // 60s default
+    visionTimeout: z.number().default(120000), // 2min for vision
     maxRetries: z.number().default(2),
     temperature: z.number().default(0.1),
     numCtx: z.number().default(4096),
     disabled: z.boolean().default(false),
+    // GPU optimization settings
+    gpu: z.object({
+      enabled: z.boolean().default(true),
+      numGpuLayers: z.number().min(-1).default(-1), // -1 = auto-detect, 0 = CPU only, >0 = specific layers
+      mainGpu: z.number().default(0),
+      tensorSplit: z.string().optional(), // e.g., "3,1" for multi-GPU
+    }).default({}),
+    // Performance settings
+    performance: z.object({
+      numThread: z.number().default(0), // 0 = auto
+      numBatch: z.number().default(512),
+      numPredict: z.number().default(1200),
+      topP: z.number().default(0.7),
+      topK: z.number().default(20),
+      repeatPenalty: z.number().default(1.0),
+      frequencyPenalty: z.number().default(0.0),
+      presencePenalty: z.number().default(0.0),
+    }).default({}),
+    // Caching settings
+    cache: z.object({
+      enabled: z.boolean().default(true),
+      ttl: z.number().default(300000), // 5 minutes
+      maxSize: z.number().default(100), // max cached responses
+    }).default({}),
+    // Connection pooling
+    pool: z.object({
+      enabled: z.boolean().default(true),
+      maxSockets: z.number().default(10),
+      keepAlive: z.boolean().default(true),
+      keepAliveMsecs: z.number().default(30000),
+    }).default({}),
   }),
 
   // OCR settings
@@ -88,6 +119,33 @@ function loadConfig(): Config {
       temperature: process.env.OLLAMA_TEMPERATURE ? parseFloat(process.env.OLLAMA_TEMPERATURE) : undefined,
       numCtx: process.env.OLLAMA_NUM_CTX ? parseInt(process.env.OLLAMA_NUM_CTX, 10) : undefined,
       disabled: process.env.DISABLE_LLM === 'true',
+      gpu: {
+        enabled: process.env.OLLAMA_GPU_ENABLED !== 'false',
+        numGpuLayers: process.env.OLLAMA_NUM_GPU_LAYERS ? parseInt(process.env.OLLAMA_NUM_GPU_LAYERS, 10) : undefined,
+        mainGpu: process.env.OLLAMA_MAIN_GPU ? parseInt(process.env.OLLAMA_MAIN_GPU, 10) : undefined,
+        tensorSplit: process.env.OLLAMA_TENSOR_SPLIT,
+      },
+      performance: {
+        numThread: process.env.OLLAMA_NUM_THREAD ? parseInt(process.env.OLLAMA_NUM_THREAD, 10) : undefined,
+        numBatch: process.env.OLLAMA_NUM_BATCH ? parseInt(process.env.OLLAMA_NUM_BATCH, 10) : undefined,
+        numPredict: process.env.OLLAMA_NUM_PREDICT ? parseInt(process.env.OLLAMA_NUM_PREDICT, 10) : undefined,
+        topP: process.env.OLLAMA_TOP_P ? parseFloat(process.env.OLLAMA_TOP_P) : undefined,
+        topK: process.env.OLLAMA_TOP_K ? parseInt(process.env.OLLAMA_TOP_K, 10) : undefined,
+        repeatPenalty: process.env.OLLAMA_REPEAT_PENALTY ? parseFloat(process.env.OLLAMA_REPEAT_PENALTY) : undefined,
+        frequencyPenalty: process.env.OLLAMA_FREQUENCY_PENALTY ? parseFloat(process.env.OLLAMA_FREQUENCY_PENALTY) : undefined,
+        presencePenalty: process.env.OLLAMA_PRESENCE_PENALTY ? parseFloat(process.env.OLLAMA_PRESENCE_PENALTY) : undefined,
+      },
+      cache: {
+        enabled: process.env.OLLAMA_CACHE_ENABLED !== 'false',
+        ttl: process.env.OLLAMA_CACHE_TTL ? parseInt(process.env.OLLAMA_CACHE_TTL, 10) : undefined,
+        maxSize: process.env.OLLAMA_CACHE_MAX_SIZE ? parseInt(process.env.OLLAMA_CACHE_MAX_SIZE, 10) : undefined,
+      },
+      pool: {
+        enabled: process.env.OLLAMA_POOL_ENABLED !== 'false',
+        maxSockets: process.env.OLLAMA_POOL_MAX_SOCKETS ? parseInt(process.env.OLLAMA_POOL_MAX_SOCKETS, 10) : undefined,
+        keepAlive: process.env.OLLAMA_POOL_KEEP_ALIVE !== 'false',
+        keepAliveMsecs: process.env.OLLAMA_POOL_KEEP_ALIVE_MS ? parseInt(process.env.OLLAMA_POOL_KEEP_ALIVE_MS, 10) : undefined,
+      },
     },
     ocr: {
       confidenceThreshold: process.env.OCR_CONFIDENCE_THRESHOLD

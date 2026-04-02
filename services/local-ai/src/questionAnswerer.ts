@@ -5,11 +5,13 @@
  */
 
 import { FORM_QUESTIONS, getQuestionByFieldPath, type FormQuestion } from './formQuestions.js';
-import { createEmptyForm, type MonthlyCareCoordinationForm, type FieldConfidence, type QAAnswer } from '@ara/shared';
+import { createEmptyForm, type MonthlyCareCoordinationForm, type FieldConfidence, type QAAnswer, type FieldPath } from '@ara/shared';
 import { logger, createProgressTracker } from './logger.js';
 import { checkOllamaHealth } from './ollama.js';
 import { setModelBusy } from './warmup.js';
-import { DEFAULT_MODEL, OLLAMA_BASE_URL, getModelOptions, buildQwen3Prompt } from './modelConfig.js';
+import { DEFAULT_MODEL, getModelOptions } from './modelConfig.js';
+import { getOllamaClient } from './ollamaClient.js';
+import { buildConfidenceFromAnswers } from './utils/confidence.js';
 
 export interface QAResult {
   form: MonthlyCareCoordinationForm;
@@ -83,7 +85,7 @@ export async function answerSpecificQuestions(
     return answers;
   }
 
-  const batchSize = 3;
+  const batchSize = 5;
   const totalBatches = Math.ceil(uniqueQuestions.length / batchSize);
 
   for (let i = 0; i < uniqueQuestions.length; i += batchSize) {
@@ -108,24 +110,17 @@ async function answerQuestion(question: FormQuestion, transcript: string): Promi
   const { system, prompt } = buildQAPrompt(question, excerpt);
 
   try {
-    const response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    const client = getOllamaClient();
+    const data = await client.generate(
+      {
         model: DEFAULT_MODEL,
-        system: system,
-        prompt: prompt,
+        system,
+        prompt,
         stream: false,
         options: getQuestionModelOptions(question),
-      }),
-      signal: AbortSignal.timeout(60000), // 60s timeout for individual questions
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-
-    const data = await response.json();
+      },
+      { useCache: true, timeout: 60000 }
+    );
     const rawAnswer = data.response?.trim() || '';
     const parsed = parseQAResponse(rawAnswer);
     const source = parsed.answer ? extractEvidenceSnippet(excerpt, parsed.answer) : undefined;
@@ -161,19 +156,26 @@ async function answerQuestion(question: FormQuestion, transcript: string): Promi
 }
 
 function buildQAPrompt(question: FormQuestion, transcriptExcerpt: string): { system: string; prompt: string } {
-  const system = 'Answer one form field. Use transcript excerpt. Missing = NOT_FOUND.';
-  const prompt = `Q: ${question.question}
-Type: ${question.type}
-Excerpt: """${transcriptExcerpt}"""
+  const system = question.type === 'textarea'
+    ? 'Extract form data from caregiver notes. Write detailed, complete answers using all relevant information from the transcript.'
+    : 'Extract form data from caregiver notes. Be concise and exact.';
 
-A: <value/NOT_FOUND>
-Confidence: <high/medium/low>`;
+  const contextLine = question.context ? `Context: ${question.context}\n` : '';
+  const prompt = `Question: ${question.question}
+${contextLine}Type: ${question.type}
+Transcript:
+"""
+${transcriptExcerpt}
+"""
+
+ANSWER: <your answer, or NOT_FOUND if not in transcript>
+CONFIDENCE: <high/medium/low>`;
 
   return { system, prompt };
 }
 
 function getQuestionModelOptions(question: FormQuestion) {
-  const maxTokens = question.type === 'textarea' ? 220 : question.type === 'checkbox' ? 12 : 80;
+  const maxTokens = question.type === 'textarea' ? 500 : question.type === 'checkbox' ? 12 : 80;
   return {
     ...getModelOptions(false),
     num_predict: maxTokens,
@@ -221,22 +223,24 @@ function getQuestionKeywords(question: FormQuestion): string[] {
     .filter(token => token.length > 2);
 
   const fieldSpecific: Record<string, string[]> = {
-    'header.recipientName': ['name', 'client', 'recipient', 'patient'],
+    // NOTE: Sensitive PII fields are excluded from auto-extraction (HIPAA compliance)
+    // 'header.recipientName': ['name', 'client', 'recipient', 'patient'],
+    // 'header.recipientIdentifier': ['id', 'identifier', 'case', 'medicaid'],
+    // 'header.dob': ['dob', 'birth', 'born'],
     'header.date': ['date', 'visited', 'visit date', 'contact date'],
     'header.time': ['time', 'visited at', 'called at', 'am', 'pm'],
-    'header.recipientIdentifier': ['id', 'identifier', 'case', 'medicaid'],
-    'header.dob': ['dob', 'birth', 'born'],
     'header.location': ['location', 'home', 'facility', 'phone', 'visit'],
     'careCoordinationType.sih': ['sih', 'senior in-home', 'in-home'],
     'careCoordinationType.hcbw': ['hcbw', 'waiver'],
-    'narrative.recipientAndVisitObservations': ['observed', 'appearance', 'visit', 'home', 'mood', 'present'],
-    'narrative.healthEmotionalStatus': ['health', 'med', 'doctor', 'fall', 'hospital', 'pain', 'behavior'],
-    'narrative.reviewOfServices': ['service', 'caregiver', 'aide', 'nursing', 'therapy', 'waiver'],
-    'narrative.progressTowardGoals': ['goal', 'progress', 'improving', 'barrier', 'independent'],
-    'narrative.additionalNotes': ['family', 'caregiver', 'equipment', 'social', 'financial', 'additional'],
-    'narrative.followUpTasks': ['follow-up', 'follow up', 'schedule', 'call', 'contact', 'arrange', 'appointment'],
-    'signature.careCoordinatorName': ['coordinator', 'signed', 'signature', 'by'],
-    'signature.dateSigned': ['signed', 'date signed', 'signature date'],
+    'narrative.recipientAndVisitObservations': ['observed', 'appearance', 'visit', 'home environment', 'present', 'client was', 'client appeared', 'during the visit'],
+    'narrative.healthEmotionalStatus': ['health', 'medication', 'doctor', 'fall', 'hospital', 'pain', 'behavior', 'mood', 'emotional', 'vital', 'diagnosis', 'symptom'],
+    'narrative.reviewOfServices': ['service', 'aide', 'nursing', 'therapy', 'provider', 'personal care', 'transportation'],
+    'narrative.progressTowardGoals': ['goal', 'progress', 'improving', 'barrier', 'independent', 'skill', 'achieving'],
+    'narrative.additionalNotes': ['family', 'equipment', 'financial', 'housing', 'safety', 'additional'],
+    'narrative.followUpTasks': ['follow-up', 'follow up', 'schedule', 'call', 'contact', 'arrange', 'appointment', 'coordinator will', 'referral'],
+    // NOTE: Signature fields excluded (manual entry only)
+    // 'signature.careCoordinatorName': ['coordinator', 'signed', 'signature', 'by'],
+    // 'signature.dateSigned': ['signed', 'date signed', 'signature date'],
   };
 
   return Array.from(new Set([...(fieldSpecific[question.fieldPath] || []), ...baseKeywords]));
@@ -322,15 +326,8 @@ function setFieldValue(
 }
 
 function buildConfidenceScores(answers: Record<string, QAAnswer>): FieldConfidence[] {
-  return FORM_QUESTIONS.map(question => {
-    const answer = answers[question.fieldPath];
-    return {
-      field: question.fieldPath,
-      confidence: answer?.confidence || 'low',
-      ocrConfidence: 100,
-      source: answer?.source || 'qa-llm',
-    };
-  });
+  const fields = FORM_QUESTIONS.map(q => q.fieldPath as FieldPath);
+  return buildConfidenceFromAnswers(fields, answers, 'qa-llm');
 }
 
 function fillWithRuleBased(transcript: string): QAResult {
@@ -341,17 +338,18 @@ function fillWithRuleBased(transcript: string): QAResult {
   for (const line of lines) {
     const lowerLine = line.toLowerCase();
 
-    if (lowerLine.includes('name:') || lowerLine.includes('client:') || lowerLine.includes('recipient:')) {
-      const match = line.match(/(?:name|client|recipient)[:\s]+(.+)/i);
-      if (match && !form.header.recipientName) {
-        form.header.recipientName = match[1].trim();
-        answers['header.recipientName'] = {
-          answer: match[1].trim(),
-          confidence: 'medium',
-          source: line.substring(0, 180),
-        };
-      }
-    }
+    // NOTE: recipientName excluded - manual entry only (HIPAA)
+    // if (lowerLine.includes('name:') || lowerLine.includes('client:') || lowerLine.includes('recipient:')) {
+    //   const match = line.match(/(?:name|client|recipient)[:\s]+(.+)/i);
+    //   if (match && !form.header.recipientName) {
+    //     form.header.recipientName = match[1].trim();
+    //     answers['header.recipientName'] = {
+    //       answer: match[1].trim(),
+    //       confidence: 'medium',
+    //       source: line.substring(0, 180),
+    //     };
+    //   }
+    // }
 
     if (lowerLine.includes('date:') || lowerLine.match(/\bdate\s*:/)) {
       const match = line.match(/(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/);
@@ -407,7 +405,8 @@ function fillWithRuleBased(transcript: string): QAResult {
 export function generateQASummary(answers: Record<string, QAAnswer>): string {
   const sections: string[] = [];
 
-  const headerFields = ['header.recipientName', 'header.date', 'header.location'];
+  // NOTE: recipientName excluded from summary (manual entry only)
+  const headerFields = ['header.date', 'header.location'];
   const headerInfo = headerFields.map(field => answers[field]?.answer).filter(Boolean).join(' | ');
   if (headerInfo) sections.push(`Visit: ${headerInfo}`);
 

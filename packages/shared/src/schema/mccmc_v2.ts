@@ -20,12 +20,12 @@ export type FieldConfidence = z.infer<typeof FieldConfidenceSchema>;
 
 // Header fields
 export const FormHeaderSchema = z.object({
-  recipientName: z.string().default(''),
-  date: z.string().default(''),
-  time: z.string().default(''),
-  recipientIdentifier: z.string().default(''),
-  dob: z.string().default(''),
-  location: z.string().default(''),
+  recipientName: z.string().trim().max(100).default(''),
+  date: z.string().trim().max(20).default(''),
+  time: z.string().trim().max(20).default(''),
+  recipientIdentifier: z.string().trim().max(50).default(''),
+  dob: z.string().trim().max(20).default(''),
+  location: z.string().trim().max(100).default(''),
 });
 export type FormHeader = z.infer<typeof FormHeaderSchema>;
 
@@ -39,30 +39,30 @@ export type CareCoordinationType = z.infer<typeof CareCoordinationTypeSchema>;
 // Main narrative sections
 export const NarrativeSectionsSchema = z.object({
   // Main section - Recipient & Visit observations
-  recipientAndVisitObservations: z.string().default(''),
-  
+  recipientAndVisitObservations: z.string().trim().max(10000).default(''),
+
   // Health section - combined
-  healthEmotionalStatus: z.string().default(''),
-  
+  healthEmotionalStatus: z.string().trim().max(10000).default(''),
+
   // Review of Services
-  reviewOfServices: z.string().default(''),
-  
+  reviewOfServices: z.string().trim().max(10000).default(''),
+
   // Progress toward goals
-  progressTowardGoals: z.string().default(''),
-  
+  progressTowardGoals: z.string().trim().max(10000).default(''),
+
   // Additional notes
-  additionalNotes: z.string().default(''),
-  
-  // NEW: Care coordinator follow up tasks
-  followUpTasks: z.string().default(''),
+  additionalNotes: z.string().trim().max(10000).default(''),
+
+  // Care coordinator follow up tasks
+  followUpTasks: z.string().trim().max(10000).default(''),
 });
 export type NarrativeSections = z.infer<typeof NarrativeSectionsSchema>;
 
-// Signature section (NEW)
+// Signature section
 export const SignatureSchema = z.object({
-  careCoordinatorName: z.string().default(''),
-  signature: z.string().default(''),
-  dateSigned: z.string().default(''),
+  careCoordinatorName: z.string().trim().max(100).default(''),
+  signature: z.string().trim().max(200).default(''),
+  dateSigned: z.string().trim().max(20).default(''),
 });
 export type Signature = z.infer<typeof SignatureSchema>;
 
@@ -163,8 +163,8 @@ export interface FieldMetadata {
 // All fields metadata
 export const FORM_FIELDS: FieldMetadata[] = [
   // Header
-  { path: 'header.recipientName', label: 'Recipient Name', type: 'text', required: true, section: 'Header', placeholder: 'Enter recipient name' },
-  { path: 'header.date', label: 'Date', type: 'text', required: true, section: 'Header', placeholder: 'MM/DD/YYYY' },
+  { path: 'header.recipientName', label: 'Recipient Name', type: 'text', required: false, section: 'Header', placeholder: 'Enter recipient name' },
+  { path: 'header.date', label: 'Date', type: 'text', required: false, section: 'Header', placeholder: 'MM/DD/YYYY' },
   { path: 'header.time', label: 'Time', type: 'text', required: false, section: 'Header', placeholder: 'HH:MM' },
   { path: 'header.recipientIdentifier', label: 'Recipient Identifier', type: 'text', required: false, section: 'Header', placeholder: 'ID number' },
   { path: 'header.dob', label: 'Date of Birth', type: 'text', required: false, section: 'Header', placeholder: 'MM/DD/YYYY' },

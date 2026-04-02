@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../ollama.js', () => ({
   checkOllamaHealth: vi.fn(),
@@ -15,6 +15,10 @@ import { fillNarrativeWithQA } from '../narrativeQA.js';
 const mockedCheckOllamaHealth = vi.mocked(checkOllamaHealth);
 const mockedAnswerSpecificQuestions = vi.mocked(answerSpecificQuestions);
 
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
 describe('fillNarrativeWithQA', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -29,8 +33,8 @@ describe('fillNarrativeWithQA', () => {
     const result = await fillNarrativeWithQA(`Name: Mary Johnson\nDate: 02/15/2024\nVisited at home.\nSIH checked.`);
 
     expect(result.extractionMethod).toBe('ocr-only');
-    // Deterministic extraction may include extra text with small models
-    expect(result.form.header.recipientName).toContain('Mary Johnson');
+    // NOTE: recipientName is NOT extracted - manual entry only (HIPAA compliance)
+    expect(result.form.header.recipientName).toBe('');
     expect(result.form.header.date).toBe('02/15/2024');
     expect(result.form.header.location).toBe('Home');
     expect(result.form.careCoordinationType.sih).toBe(true);
@@ -43,7 +47,8 @@ describe('fillNarrativeWithQA', () => {
       ok: true,
       json: async () => ({
         response: JSON.stringify({
-          recipientName: 'Mary Johnson',
+          // NOTE: recipientName is NOT extracted - manual entry only (HIPAA compliance)
+          recipientName: '',
           date: '02/15/2024',
           time: '14:30',
           recipientIdentifier: '',
@@ -51,11 +56,11 @@ describe('fillNarrativeWithQA', () => {
           location: 'Home',
           sih: true,
           hcbw: false,
-          recipientAndVisitObservations: 'Client was alert.',
-          healthEmotionalStatus: 'No issues.',
-          reviewOfServices: 'SIH services.',
-          progressTowardGoals: 'Stable.',
-          followUpTasks: 'Call daughter.',
+          recipientAndVisitObservations: 'Client was alert and oriented.',
+          healthEmotionalStatus: 'No health issues reported.',
+          reviewOfServices: 'SIH services ongoing.',
+          progressTowardGoals: 'Stable, meeting goals.',
+          followUpTasks: 'Call daughter next week.',
           additionalNotes: 'Family engaged.',
           careCoordinatorName: '',
           dateSigned: '',
@@ -65,9 +70,39 @@ describe('fillNarrativeWithQA', () => {
 
     const result = await fillNarrativeWithQA(`Name: Mary Johnson\nDate: 02/15/2024\nVisited at 2:30 PM at home.\nCoordinator: Jane Care`);
 
-    // With LLM available, should use narrative-qa method
     expect(['narrative-qa', 'qa-llm', 'ocr-only']).toContain(result.extractionMethod);
-    expect(result.form.header.recipientName).toContain('Mary Johnson');
+    // NOTE: recipientName is NOT extracted - manual entry only (HIPAA compliance)
+    expect(result.form.header.recipientName).toBe('');
+    // Date should be populated by LLM or deterministic extraction
+    expect(result.form.header.date).toBeTruthy();
+  });
+
+  it('falls back gracefully when LLM returns malformed JSON', async () => {
+    mockedCheckOllamaHealth.mockResolvedValue(true);
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        response: 'This is not valid JSON at all!!!',
+      }),
+    }));
+
+    const result = await fillNarrativeWithQA(`Date: 03/01/2024\nSIH visit at Home.`);
+
+    // Should not throw; should fall back to deterministic or ocr-only
+    expect(result).toBeDefined();
+    expect(result.form).toBeDefined();
+    expect(['narrative-qa', 'qa-llm', 'ocr-only']).toContain(result.extractionMethod);
+  });
+
+  it('falls back gracefully when LLM request times out', async () => {
+    mockedCheckOllamaHealth.mockResolvedValue(true);
+
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('AbortError: The operation was aborted')));
+
+    const result = await fillNarrativeWithQA(`Date: 03/01/2024\nSIH visit at Home.`);
+
+    expect(result).toBeDefined();
+    expect(result.form).toBeDefined();
   });
 });
-

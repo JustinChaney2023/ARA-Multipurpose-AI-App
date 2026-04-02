@@ -258,10 +258,12 @@ async function parseWithRules(
     }
     
     // Header fields pattern matching
-    if (lowerLine.includes('recipient name') || lowerLine.match(/\bname\s*:/)) {
-      const match = line.match(/(?:recipient name|name)\s*[:\-]?\s*(.+)/i);
-      if (match) form.header.recipientName = match[1].trim();
-    }
+    // NOTE: recipientName, DOB, and recipientIdentifier are left empty for manual entry
+    // to ensure HIPAA compliance and data accuracy
+    // if (lowerLine.includes('recipient name') || lowerLine.match(/\bname\s*:/)) {
+    //   const match = line.match(/(?:recipient name|name)\s*[:\-]?\s*(.+)/i);
+    //   if (match) form.header.recipientName = match[1].trim();
+    // }
     
     if (lowerLine.includes('date') && !lowerLine.includes('birth')) {
       const match = line.match(/date\s*[:\-]?\s*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i);
@@ -273,20 +275,22 @@ async function parseWithRules(
       if (match) form.header.time = match[1].trim();
     }
     
-    if (lowerLine.includes('dob') || lowerLine.includes('date of birth')) {
-      const match = line.match(/(?:dob|date of birth)\s*[:\-]?\s*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i);
-      if (match) form.header.dob = match[1].trim();
-    }
+    // DOB left empty for manual entry (HIPAA compliance)
+    // if (lowerLine.includes('dob') || lowerLine.includes('date of birth')) {
+    //   const match = line.match(/(?:dob|date of birth)\s*[:\-]?\s*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i);
+    //   if (match) form.header.dob = match[1].trim();
+    // }
     
     if (lowerLine.includes('location')) {
       const match = line.match(/location\s*[:\-]?\s*(.+)/i);
       if (match) form.header.location = match[1].trim();
     }
     
-    if (lowerLine.includes('identifier') || lowerLine.includes('id')) {
-      const match = line.match(/(?:recipient identifier|identifier|id)\s*[:\-]?\s*(.+)/i);
-      if (match) form.header.recipientIdentifier = match[1].trim();
-    }
+    // Recipient ID left empty for manual entry (HIPAA compliance)
+    // if (lowerLine.includes('identifier') || lowerLine.includes('id')) {
+    //   const match = line.match(/(?:recipient identifier|identifier|id)\s*[:\-]?\s*(.+)/i);
+    //   if (match) form.header.recipientIdentifier = match[1].trim();
+    // }
     
     // Checkboxes
     const checkedPattern = /\[x\]|[X]|checked|yes/i;

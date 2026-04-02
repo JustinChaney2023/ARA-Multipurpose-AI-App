@@ -16,16 +16,10 @@ export interface FormQuestion {
  * All form questions for the Monthly Care Coordination form
  * Ordered logically for the LLM to process
  */
+// NOTE: recipientName, recipientIdentifier, dob, and signature fields are excluded
+// from auto-extraction for HIPAA compliance — manual entry only.
 export const FORM_QUESTIONS: FormQuestion[] = [
-  // Header Information
-  {
-    fieldPath: 'header.recipientName',
-    pdfField: 'recipientName',
-    question: "What is the recipient's full name?",
-    context: "Look for the client's name. It may be labeled as 'Name:', 'Client:', 'Recipient:', or just appear at the top of the notes. Extract the full name as written.",
-    required: true,
-    type: 'text',
-  },
+  // Header
   {
     fieldPath: 'header.date',
     pdfField: 'date',
@@ -41,22 +35,6 @@ export const FORM_QUESTIONS: FormQuestion[] = [
     context: "Look for the time of visit. May be labeled 'Time:', 'At:', or mentioned in context like 'visited at 2pm'. Extract the time as written.",
     required: false,
     type: 'time',
-  },
-  {
-    fieldPath: 'header.recipientIdentifier',
-    pdfField: 'recipientId',
-    question: "What is the recipient's ID number or identifier?",
-    context: "Look for any ID, case number, or client identifier. May be labeled 'ID:', 'Case #:', 'Recipient ID:', 'Medicaid ID:', etc.",
-    required: false,
-    type: 'text',
-  },
-  {
-    fieldPath: 'header.dob',
-    pdfField: 'dob',
-    question: "What is the recipient's date of birth?",
-    context: "Look for date of birth. May be labeled 'DOB:', 'Date of Birth:', 'Born:'. Format as MM/DD/YYYY if possible.",
-    required: false,
-    type: 'date',
   },
   {
     fieldPath: 'header.location',
@@ -135,23 +113,6 @@ export const FORM_QUESTIONS: FormQuestion[] = [
     type: 'textarea',
   },
 
-  // Signature
-  {
-    fieldPath: 'signature.careCoordinatorName',
-    pdfField: 'coordinatorName',
-    question: "What is the care coordinator's name?",
-    context: "Look for the name of the person writing the notes or conducting the visit. May be signed at the end, labeled 'Coordinator:', 'By:', or in a signature block.",
-    required: false,
-    type: 'text',
-  },
-  {
-    fieldPath: 'signature.dateSigned',
-    pdfField: 'dateSigned',
-    question: "What date should be used for the coordinator signature?",
-    context: "Use the visit date if available, or look for a date near the signature. Format as MM/DD/YYYY.",
-    required: false,
-    type: 'date',
-  },
 ];
 
 /**

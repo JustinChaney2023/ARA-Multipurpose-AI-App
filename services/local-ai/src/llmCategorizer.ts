@@ -6,17 +6,9 @@
 import { createEmptyForm } from '@ara/shared';
 import { logger, createProgressTracker } from './logger.js';
 import { parseLLMJSON, isPlaceholder, cleanPlaceholders } from './jsonUtils.js';
-import { 
-  DEFAULT_MODEL, 
-  OLLAMA_BASE_URL, 
-  getModelOptions, 
-  buildQwen3Prompt,
-  SYSTEM_PROMPTS 
-} from './modelConfig.js';
+import { DEFAULT_MODEL, getModelOptions } from './modelConfig.js';
+import { getOllamaClient } from './ollamaClient.js';
 import type { MonthlyCareCoordinationForm } from '@ara/shared';
-
-// Track if LLM failed (to avoid repeated timeouts)
-let llmFailed = false;
 
 interface CategorizationResult {
   form: Partial<MonthlyCareCoordinationForm>;
@@ -28,20 +20,6 @@ interface ValidationIssue {
   field: string;
   issue: string;
   suggestion?: string;
-}
-
-/**
- * Check if LLM is available
- */
-export function isLLMAvailable(): boolean {
-  return !llmFailed && process.env.DISABLE_LLM !== 'true';
-}
-
-/**
- * Mark LLM as failed
- */
-export function markLLMFailed(): void {
-  llmFailed = true;
 }
 
 /**
@@ -103,24 +81,11 @@ Respond with ONLY valid JSON. No other text.`;
 
   const prompt = `NOW EXTRACT FROM:\n"""\n${ocrText.substring(0, 5000)}\n"""\n\nJSON OUTPUT:`;
 
-  const response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: DEFAULT_MODEL,
-      system: system,
-      prompt: prompt,
-      stream: false,
-      options: getModelOptions(),
-    }),
-    signal: AbortSignal.timeout(120000),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Categorization failed: ${response.status}`);
-  }
-
-  const data = await response.json();
+  const client = getOllamaClient();
+  const data = await client.generate(
+    { model: DEFAULT_MODEL, system, prompt, stream: false, options: getModelOptions() },
+    { useCache: true, timeout: 120000 }
+  );
   const rawOutput = data.response?.trim() || '';
   
   logger.debug('LLM raw output', { rawOutput: rawOutput.substring(0, 500) });

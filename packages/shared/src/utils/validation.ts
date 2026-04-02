@@ -148,14 +148,12 @@ interface FieldValidationConfig {
 const FIELD_VALIDATIONS: Partial<Record<FieldPath, FieldValidationConfig>> = {
   'header.recipientName': {
     rules: [
-      ValidationRules.required('Recipient name'),
       ValidationRules.minLength('Recipient name', 2),
       ValidationRules.maxLength('Recipient name', 100),
     ],
   },
   'header.date': {
     rules: [
-      ValidationRules.required('Date'),
       ValidationRules.dateFormat('Date'),
     ],
   },
@@ -326,11 +324,6 @@ export function applySmartDefaults(
   form: MonthlyCareCoordinationForm
 ): Partial<MonthlyCareCoordinationForm> {
   const updates: Partial<MonthlyCareCoordinationForm> = {};
-
-  // Auto-set date signed to visit date
-  if (form.header.date && !form.signature.dateSigned) {
-    updates.signature = { ...form.signature, dateSigned: form.header.date };
-  }
 
   // Default location to Home if empty
   if (!form.header.location) {

@@ -30,7 +30,7 @@
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
     "ci": "npm run lint && npm run typecheck && npm run test",
-    "clean": "rm -rf node_modules apps/*/node_modules services/*/node_modules packages/*/node_modules apps/desktop/src-tauri/target dist build packages/shared/dist services/local-ai/dist 2>/dev/null || rd /s /q node_modules apps\desktop\node_modules services\local-ai\node_modules packages\shared\node_modules 2>nul || echo Cleaned",
+    "clean": "node scripts/clean.js",
     "docker:build": "docker-compose build",
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",

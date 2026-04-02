@@ -431,7 +431,7 @@ export function ReviewScreen({ result: initialResult, onBack, onNewForm }: Revie
         <div className="form-grid">
           <div className="form-group" data-field="header.recipientName">
             <label className="form-label">
-              Recipient Name *
+              Recipient Name
               <ValidationIndicator field="header.recipientName" />
             </label>
             <input
@@ -446,7 +446,7 @@ export function ReviewScreen({ result: initialResult, onBack, onNewForm }: Revie
           
           <div className="form-group" data-field="header.date">
             <label className="form-label">
-              Date *
+              Date
               <ValidationIndicator field="header.date" />
             </label>
             <input

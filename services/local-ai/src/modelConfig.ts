@@ -1,56 +1,36 @@
 /**
- * Model Configuration for Qwen3-4B-Q4_K_M
- * 
- * Model specs:
- * - Model: Qwen3-4B
- * - Quantization: Q4_K_M (4-bit, medium quality)
- * - Size: ~2.3GB
- * - Context: 32K tokens (use 8K for form filling)
- * - VRAM required: ~3GB
- * 
- * To download:
- *   ollama pull qwen3:4b-q4_K_M
- * 
- * Or create a Modelfile:
- *   FROM qwen3:4b
- *   PARAMETER quantization Q4_K_M
+ * Model configuration for Ollama integration.
+ * Primary configuration lives in config/index.ts — this file re-exports
+ * convenience constants and generation option helpers used across the service.
  */
 
 import { config } from './config/index.js';
 
-// Re-export from centralized config for backward compatibility
 export const DEFAULT_MODEL = config.ollama.model;
 export const OLLAMA_BASE_URL = config.ollama.baseUrl;
 
-// Legacy constants (now sourced from config)
 export const MODEL_CONTEXT_LENGTH = config.ollama.numCtx;
 export const MODEL_TEMPERATURE = config.ollama.temperature;
-export const MODEL_MAX_TOKENS = 1500;
+export const MODEL_MAX_TOKENS = config.ollama.performance.numPredict;
 
-// Generation options optimized for Qwen3-4B-Q4_K_M
+/**
+ * Build Ollama generation options from centralized config.
+ * GPU and threading settings are also applied by OllamaClient.buildOptimizedRequest(),
+ * so only sampling/context options are set here.
+ */
 export const getModelOptions = (isVision: boolean = false) => ({
   temperature: config.ollama.temperature,
-  num_predict: MODEL_MAX_TOKENS,
+  num_predict: isVision ? 2000 : config.ollama.performance.numPredict,
   num_ctx: config.ollama.numCtx,
-  top_p: 0.9,
-  top_k: 40,
-  repeat_penalty: 1.0,
-  keep_alive: "10m",
-  num_thread: 0,
-  num_gpu: 0,
-  num_batch: 512,
+  top_p: config.ollama.performance.topP,
+  top_k: config.ollama.performance.topK,
+  repeat_penalty: config.ollama.performance.repeatPenalty,
+  frequency_penalty: config.ollama.performance.frequencyPenalty,
+  presence_penalty: config.ollama.performance.presencePenalty,
+  keep_alive: '10m',
 });
 
-// Build prompt for Ollama API
-export const buildQwen3Prompt = (systemPrompt: string, userPrompt: string): string => {
-  return `${systemPrompt}
-
-User: ${userPrompt}
-
-Assistant:`;
-};
-
-// Check if model is available
+// Check if model is available in Ollama
 export async function checkModelAvailable(modelName: string = config.ollama.model): Promise<boolean> {
   try {
     const response = await fetch(`${config.ollama.baseUrl}/api/tags`, {
@@ -58,28 +38,25 @@ export async function checkModelAvailable(modelName: string = config.ollama.mode
       headers: { 'Content-Type': 'application/json' },
       signal: AbortSignal.timeout(3000),
     });
-    
+
     if (!response.ok) return false;
-    
+
     const data = await response.json();
     const models = data.models?.map((m: { name: string }) => m.name) || [];
-    
-    return models.some((m: string) => 
-      m === modelName || 
-      m === 'qwen3:4b' ||
-      m === 'qwen3:4b-q4_K_M'
+
+    return models.some((m: string) =>
+      m === modelName ||
+      m.startsWith(modelName.split(':')[0])
     );
   } catch {
     return false;
   }
 }
 
-// Warmup prompt for Qwen3
 export const WARMUP_PROMPT = 'Hi';
 
-// System prompts for different tasks
 export const SYSTEM_PROMPTS = {
-  formFilling: `You are a professional care coordinator assistant. Your task is to read caregiver notes and extract structured form data accurately. 
+  formFilling: `You are a professional care coordinator assistant. Your task is to read caregiver notes and extract structured form data accurately.
 
 Rules:
 1. Answer based ONLY on the provided transcript

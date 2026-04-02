@@ -15,10 +15,12 @@ import {
   type FieldPath,
   type QAAnswer,
 } from '@ara/shared';
+import { buildConfidenceFromAnswers } from './utils/confidence.js';
 import { logger, createProgressTracker } from './logger.js';
 import { checkOllamaHealth } from './ollama.js';
+import { getOllamaClient } from './ollamaClient.js';
 import { setModelBusy } from './warmup.js';
-import { DEFAULT_MODEL, OLLAMA_BASE_URL, getModelOptions } from './modelConfig.js';
+import { DEFAULT_MODEL, getModelOptions } from './modelConfig.js';
 import { FORM_QUESTIONS, getQuestionByFieldPath } from './formQuestions.js';
 import { answerSpecificQuestions } from './questionAnswerer.js';
 
@@ -54,14 +56,20 @@ type AnswerRecord = Record<string, QAAnswer>;
 
 type ExtractionStrategy = 'deterministic' | 'single-pass' | 'qa-repair' | 'fallback';
 
-const REQUIRED_FIELDS: FieldPath[] = ['header.recipientName', 'header.date'];
+// NOTE: Sensitive PII fields excluded from auto-extraction (HIPAA compliance)
+// recipientName, recipientIdentifier, DOB require manual entry
+// signature fields require manual entry for authenticity
+const REQUIRED_FIELDS: FieldPath[] = [
+  // 'header.recipientName',  // Manual entry only (PII)
+  'header.date'
+];
 const OPTIONAL_STRUCTURED_FIELDS: FieldPath[] = [
   'header.time',
-  'header.recipientIdentifier',
-  'header.dob',
+  // 'header.recipientIdentifier',  // Manual entry only (PII)
+  // 'header.dob',  // Manual entry only (PII)
   'header.location',
-  'signature.careCoordinatorName',
-  'signature.dateSigned',
+  // 'signature.careCoordinatorName',  // Manual entry only (signature)
+  // 'signature.dateSigned',  // Manual entry only (signature)
 ];
 const NARRATIVE_FIELDS: FieldPath[] = [
   'narrative.recipientAndVisitObservations',
@@ -86,37 +94,55 @@ export async function fillNarrativeWithQA(
   setModelBusy(true);
 
   try {
-    const ollamaAvailable = await checkOllamaHealth();
+    progress.update(15, 'Running deterministic prefill + health check');
+    onProgress?.('prefill', 15);
+
+    // Limit transcript to 6000 chars — fits comfortably within the 8192-token context window
+    if (cleanedTranscript.length > 6000) {
+      logger.debug('Transcript truncated for extraction', { original: cleanedTranscript.length, truncated: 6000 });
+    }
+    const truncatedTranscript = cleanedTranscript.substring(0, 6000);
+
+    // Run health check and LLM extraction concurrently — saves the health-check RTT
+    const [ollamaAvailable, extractedDataOrNull] = await Promise.all([
+      checkOllamaHealth(),
+      extractAllFields(truncatedTranscript).catch((err) => {
+        logger.warn('Single-pass extraction failed during parallel startup', {
+          error: err instanceof Error ? err.message : 'Unknown error',
+        });
+        return null;
+      }),
+    ]);
+
     if (!ollamaAvailable) {
       logger.warn('Ollama not available, using deterministic fallback');
       return buildFallbackResult(cleanedTranscript, deterministicAnswers);
     }
 
-    progress.update(15, 'Running deterministic prefill');
-    onProgress?.('prefill', 15);
-
     let mergedAnswers: AnswerRecord = { ...deterministicAnswers };
     let usedRepair = false;
 
     try {
-      progress.update(35, 'Extracting form data in one AI pass');
+      progress.update(35, 'Merging AI extraction results');
       onProgress?.('extracting', 35);
 
-      // Limit transcript to 4000 chars for faster processing
-      const extractedData = await extractAllFields(cleanedTranscript.substring(0, 4000));
-      const extractedAnswers = buildAnswersFromExtractedData(extractedData);
-      
-      // Log what the AI extracted for debugging
-      logger.info('AI extraction completed', {
-        hasRecipientName: !!extractedData.recipientName,
-        hasDate: !!extractedData.date,
-        hasObservations: extractedData.recipientAndVisitObservations?.length > 20,
-        hasHealthStatus: extractedData.healthEmotionalStatus?.length > 20,
-      });
-      
-      mergedAnswers = mergeAnswerRecords(mergedAnswers, extractedAnswers, true); // prefer AI answers
+      if (extractedDataOrNull) {
+        const extractedAnswers = buildAnswersFromExtractedData(extractedDataOrNull);
+
+        logger.info('AI extraction completed', {
+          hasRecipientName: !!extractedDataOrNull.recipientName,
+          hasDate: !!extractedDataOrNull.date,
+          hasObservations: extractedDataOrNull.recipientAndVisitObservations?.length > 20,
+          hasHealthStatus: extractedDataOrNull.healthEmotionalStatus?.length > 20,
+        });
+
+        mergedAnswers = mergeAnswerRecords(mergedAnswers, extractedAnswers, true); // prefer AI answers
+      } else {
+        logger.warn('Single-pass extraction unavailable, will attempt Q&A repair');
+        usedRepair = true;
+      }
     } catch (error) {
-      logger.warn('Single-pass extraction failed, switching to question repair', {
+      logger.warn('Single-pass merge failed, switching to question repair', {
         error: error instanceof Error ? error.message : 'Unknown error',
       });
       usedRepair = true;
@@ -127,13 +153,11 @@ export async function fillNarrativeWithQA(
     // Skip repair step if we have good data from initial extraction
     // This saves significant time (repair can take 30-60 seconds)
     const repairFields = buildRepairFieldList(form, mergedAnswers, cleanedTranscript);
-    const needsRepair = repairFields.filter(f => 
-      f === 'header.recipientName' || f === 'header.date' || 
-      (f.startsWith('narrative.') && form.narrative[f.split('.')[1] as keyof typeof form.narrative]?.length < 30)
+    const needsRepair = repairFields.filter(f =>
+      f === 'header.date' || f.startsWith('narrative.')
     );
 
-    // Only repair if critical fields are missing or narrative fields are very short
-    if (needsRepair.length > 0 && needsRepair.length <= 3) {
+    if (needsRepair.length > 0) {
       progress.update(65, `Repairing ${needsRepair.length} field(s)`);
       onProgress?.('repairing', 65);
 
@@ -184,7 +208,6 @@ export async function fillNarrativeWithQA(
 }
 
 async function extractAllFields(transcript: string): Promise<ExtractedData> {
-  // Split extraction into 2 smaller prompts for better 0.5B model performance
   const defaults: ExtractedData = {
     recipientName: '',
     date: '',
@@ -204,64 +227,50 @@ async function extractAllFields(transcript: string): Promise<ExtractedData> {
     dateSigned: '',
   };
 
-  // Prompt 1: Header fields only (simpler)
-  const headerResult = await extractHeaderFields(transcript);
-  
-  // Prompt 2: Narrative fields only
-  const narrativeResult = await extractNarrativeFields(transcript);
+  const systemPrompt = `Extract structured form data from caregiver notes into a single JSON object. Leave empty string for: recipientName, recipientIdentifier, dob, careCoordinatorName, dateSigned.`;
 
-  return {
-    ...defaults,
-    ...headerResult,
-    ...narrativeResult,
-  };
-}
-
-async function extractHeaderFields(transcript: string): Promise<Partial<ExtractedData>> {
-  const systemPrompt = `Extract header info from notes. Return JSON.`;
-
-  const userPrompt = `Extract from notes:
+  const userPrompt = `Notes:
 ${transcript}
 
-JSON:
-{
-  "recipientName": "",
-  "date": "",
-  "time": "",
-  "recipientIdentifier": "",
-  "dob": "",
-  "location": "",
-  "sih": false,
-  "hcbw": false,
-  "careCoordinatorName": "",
-  "dateSigned": ""
-}`;
+Extract ALL information. Each fact belongs in exactly one section — use the section that fits best. Include complete sentences; do not summarize or omit details.
+
+Section guide:
+- date: visit date in MM/DD/YYYY format
+- time: time the visit occurred
+- location: where the visit took place
+- sih: true if SIH or Senior In-Home services are mentioned, else false
+- hcbw: true if HCBW or Home and Community-Based Waiver services are mentioned, else false
+- recipientAndVisitObservations: what was observed about the recipient and their environment — physical appearance, activity, behavior during the visit, home/setting condition, who was present, any incidents
+- healthEmotionalStatus: medical and emotional health only — symptoms, diagnoses, medications, doctor or hospital visits, pain, vital signs, mental health, emotional state, mood
+- reviewOfServices: services currently being delivered — personal care, nursing, therapy, transportation, aides, providers, service hours, whether services are working
+- progressTowardGoals: care plan goal progress — specific goals, achievements, improvements, skill development, cooperation with care, barriers to goals
+- followUpTasks: specific actions the care coordinator must take — calls to schedule, appointments to make, referrals, orders, next visit plans
+- additionalNotes: important information not captured above — family dynamics, financial or housing concerns, equipment needs, safety concerns, anything else
+
+JSON:`;
 
   try {
-    const response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    const client = getOllamaClient();
+    const result = await client.generate(
+      {
         model: DEFAULT_MODEL,
         system: systemPrompt,
         prompt: userPrompt,
         stream: false,
         options: {
           ...getModelOptions(false),
-          num_predict: 500,
+          num_predict: 2000,
           temperature: 0.1,
         },
-      }),
-      signal: AbortSignal.timeout(30000),
-    });
+      },
+      { useCache: true, timeout: 90000 }
+    );
 
-    if (!response.ok) return {};
-
-    const data = await response.json();
-    const raw = data.response?.trim() || '';
-    
+    const raw = result.response?.trim() || '';
     const parsed = parsePartialData(raw);
+
     return {
+      ...defaults,
       recipientName: parsed.recipientName || '',
       date: parsed.date || '',
       time: parsed.time || '',
@@ -270,74 +279,18 @@ JSON:
       location: parsed.location || '',
       sih: parsed.sih === true,
       hcbw: parsed.hcbw === true,
-      careCoordinatorName: parsed.careCoordinatorName || '',
-      dateSigned: parsed.dateSigned || '',
-    };
-  } catch (e) {
-    logger.warn('Header extraction failed', { error: (e as Error).message });
-    return {};
-  }
-}
-
-async function extractNarrativeFields(transcript: string): Promise<Partial<ExtractedData>> {
-  const systemPrompt = `Extract narrative from notes. Copy sentences into correct field. Return JSON.`;
-
-  const userPrompt = `Organize this note:
-${transcript}
-
-Put sentences in correct field:
-- Observations: incidents, appearance, behavior
-- Health: health problems, injuries, mood
-- Services: services, staff
-- Goals: progress, cooperation
-- FollowUp: appointments, tasks
-- Additional: other
-
-JSON:
-{
-  "recipientAndVisitObservations": "",
-  "healthEmotionalStatus": "",
-  "reviewOfServices": "",
-  "progressTowardGoals": "",
-  "followUpTasks": "",
-  "additionalNotes": ""
-}`;
-
-  try {
-    const response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: DEFAULT_MODEL,
-        system: systemPrompt,
-        prompt: userPrompt,
-        stream: false,
-        options: {
-          ...getModelOptions(false),
-          num_predict: 1500,
-          temperature: 0.1,
-        },
-      }),
-      signal: AbortSignal.timeout(60000),
-    });
-
-    if (!response.ok) return {};
-
-    const data = await response.json();
-    const raw = data.response?.trim() || '';
-    
-    const parsed = parsePartialData(raw);
-    return {
       recipientAndVisitObservations: parsed.recipientAndVisitObservations || '',
       healthEmotionalStatus: parsed.healthEmotionalStatus || '',
       reviewOfServices: parsed.reviewOfServices || '',
       progressTowardGoals: parsed.progressTowardGoals || '',
       followUpTasks: parsed.followUpTasks || '',
       additionalNotes: parsed.additionalNotes || '',
+      careCoordinatorName: parsed.careCoordinatorName || '',
+      dateSigned: parsed.dateSigned || '',
     };
   } catch (e) {
-    logger.warn('Narrative extraction failed', { error: (e as Error).message });
-    return {};
+    logger.warn('Combined extraction failed', { error: (e as Error).message });
+    return defaults;
   }
 }
 
@@ -360,182 +313,12 @@ function parsePartialData(raw: string): Partial<ExtractedData> {
   }
 }
 
-function parseExtractedData(raw: string): ExtractedData {
-  const defaults: ExtractedData = {
-    recipientName: '',
-    date: '',
-    time: '',
-    recipientIdentifier: '',
-    dob: '',
-    location: '',
-    sih: false,
-    hcbw: false,
-    recipientAndVisitObservations: '',
-    healthEmotionalStatus: '',
-    reviewOfServices: '',
-    progressTowardGoals: '',
-    followUpTasks: '',
-    additionalNotes: '',
-    careCoordinatorName: '',
-    dateSigned: '',
-  };
-
-  try {
-    let json = raw;
-    const codeBlockMatch = raw.match(/```json\s*([\s\S]*?)```/i);
-    if (codeBlockMatch) {
-      json = codeBlockMatch[1];
-    } else {
-      const objectMatch = raw.match(/\{[\s\S]*\}/);
-      if (objectMatch) {
-        json = objectMatch[0];
-      }
-    }
-
-    const parsed = JSON.parse(json) as Partial<ExtractedData>;
-    return {
-      recipientName: sanitizeString(parsed.recipientName),
-      date: sanitizeString(parsed.date),
-      time: sanitizeString(parsed.time),
-      recipientIdentifier: sanitizeString(parsed.recipientIdentifier),
-      dob: sanitizeString(parsed.dob),
-      location: sanitizeString(parsed.location),
-      sih: parsed.sih === true,
-      hcbw: parsed.hcbw === true,
-      recipientAndVisitObservations: sanitizeString(parsed.recipientAndVisitObservations, 3000),
-      healthEmotionalStatus: sanitizeString(parsed.healthEmotionalStatus, 3000),
-      reviewOfServices: sanitizeString(parsed.reviewOfServices, 3000),
-      progressTowardGoals: sanitizeString(parsed.progressTowardGoals, 3000),
-      followUpTasks: sanitizeString(parsed.followUpTasks, 3000),
-      additionalNotes: sanitizeString(parsed.additionalNotes, 3000),
-      careCoordinatorName: sanitizeString(parsed.careCoordinatorName),
-      dateSigned: sanitizeString(parsed.dateSigned),
-    };
-  } catch (error) {
-    throw new Error(`Single-pass JSON parse failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-  }
-}
 
 function extractDeterministicAnswers(transcript: string): AnswerRecord {
   const answers: AnswerRecord = {};
   const lines = transcript.split('\n').map(line => line.trim()).filter(Boolean);
-  const fullText = transcript;
 
-  // Extract name - comprehensive patterns for caregiver notes
-  // Covers many edge cases: "[Name] was seen", "Client is [Name]", "visit with [Name]", etc.
-  if (!answers['header.recipientName']) {
-    const namePatterns = [
-      // Pattern 1: Name at start of sentence followed by action verb
-      // "Eleanor Mae Whitaker was seen..." / "Eleanor Whitaker is a..." / "Eleanor was visited..."
-      /^([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+){1,2})\s+(?:was seen|is a|was visited|was contacted|was present|is\s+(?:the\s+)?(?:client|recipient|patient))/im,
-      
-      // Pattern 2: Explicit label with name
-      // "Client is Eleanor Mae Whitaker" / "Recipient name: Eleanor Whitaker" / "Name - Eleanor Whitaker"
-      /(?:client|recipient|patient|member)\s+(?:is|name)[:\-\s]+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+){1,2})/i,
-      /(?:recipient\s+name|client\s+name|name)[:\-\s]+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+){0,3})/i,
-      
-      // Pattern 3: Action + with + Name (various visit/contact formats)
-      // "visit with Eleanor Mae Whitaker" / "CC met with Eleanor Whitaker" / "contact with Eleanor"
-      /(?:visit|met|completed|conducted|had\s+a|made\s+a|follow-up|followup|check-in|check\s+in)\s+(?:a\s+)?(?:scheduled\s+)?(?:routine\s+)?(?:in-person\s+)?(?:phone\s+)?(?:SIH\s+)?(?:\/\s+HCBW\s+)?(?:monitoring\s+)?(?:care\s+coordination\s+)?(?:visit|contact|call|check)?\s*(?:with|on)\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+){1,2})/i,
-      
-      // Pattern 4: CC/Care Coordinator action
-      // "CC met with Eleanor Whitaker" / "Care Coordinator spoke with Eleanor" / "CC completed visit with Eleanor"
-      /(?:CC|care\s+coordinator|coordinator|worker|case\s+manager)\s+(?:met|spoke|completed|conducted|visited|saw|checked\s+in)\s+(?:with|on)?\s*([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+){1,2})/i,
-      
-      // Pattern 5: Name followed by DOB/ID/Date markers (Name appears before these identifiers)
-      // "Eleanor Mae Whitaker DOB: 08/04/1948" / "Eleanor Whitaker ID: 58421793" / "Eleanor Whitaker on March 12"
-      /\b([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+){1,2})\s+(?:DOB|Date\s+of\s+Birth|ID|Member\s*ID|Date|DOB\s+on\s+file)/i,
-      
-      // Pattern 6: Title + Name (Ms./Mr./Mrs.)
-      // Note: This only captures last name, so we prefer other patterns. Use only if no other match.
-      // "Ms. Whitaker was seen..." - will try to find full name elsewhere
-      /(?:Ms|Mr|Mrs|Miss)\.?\s+([A-Z][a-zA-Z]+)\s+(?:was|is|reported)/i,
-      
-      // Pattern 7: Name in parenthetical or after comma
-      // "Client (Eleanor Whitaker) was..." / "Recipient, Eleanor Mae Whitaker, was..."
-      /(?:client|recipient|patient)\s*[\(\,]\s*([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+){1,2})\s*[\)\,]/i,
-      
-      // Pattern 8: Name at end of sentence ("...with Ms. Eleanor Whitaker.")
-      /(?:with|saw|visited)\s+(?:Ms|Mr|Mrs|Miss)?\.?\s*([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+){1,2})[\.\,]/i,
-    ];
-    
-    for (const pattern of namePatterns) {
-      const match = fullText.match(pattern);
-      if (match) {
-        let name = match[1].trim();
-        
-        // Clean up the name - remove common false positives
-        const narrativeWords = ['met', 'with', 'the', 'was', 'were', 'her', 'his', 'she', 'he', 'they', 'present', 'setting', 'care', 'coordinator', 'client', 'recipient'];
-        
-        // Validate name format
-        // Allow: letters, spaces, hyphens (O'Connor, Mary-Jane), apostrophes, periods (for initials)
-        // Reject: all lowercase, all uppercase, contains narrative words
-        const isValidFormat = /^[A-Za-z][a-zA-Z\-\s'\.]+$/.test(name);
-        const hasNarrativeWord = narrativeWords.some(w => name.toLowerCase().split(/\s+/).includes(w));
-        const reasonableLength = name.length > 2 && name.length < 50;
-        const hasCapitalLetters = /[A-Z]/.test(name);
-        const notJustTitle = !/^(Ms|Mr|Mrs|Miss|Dr)$/i.test(name);
-        
-        if (isValidFormat && !hasNarrativeWord && reasonableLength && hasCapitalLetters && notJustTitle) {
-          // Clean up any trailing punctuation
-          name = name.replace(/[\,\.\;\:]$/, '');
-          putAnswer(answers, 'header.recipientName', name, 'high', `deterministic: name pattern`);
-          break;
-        }
-      }
-    }
-  }
-  
-  // Fallback: Look for capitalized name in first sentence if no match yet
-  // Pattern: "On March 12, Eleanor Mae Whitaker..." or just "Eleanor Whitaker ..." at start
-  if (!answers['header.recipientName']) {
-    // Get first sentence
-    const firstSentence = fullText.match(/^[^.!?]+[.!?]/);
-    if (firstSentence) {
-      // Look for First Last pattern (2-3 capitalized words)
-      const nameMatch = firstSentence[0].match(/\b([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+){1,2})\b/);
-      if (nameMatch) {
-        const name = nameMatch[1].trim();
-        // Only reject obviously invalid words, allow names like "June"
-        const invalidWords = ['Care', 'Coordinator', 'Client', 'Recipient', 'Senior', 'Home', 'Community', 'Waiver', 'Services'];
-        if (!invalidWords.includes(name) && name.length > 3 && name.length < 40) {
-          putAnswer(answers, 'header.recipientName', name, 'medium', `deterministic: first sentence fallback`);
-        }
-      }
-    }
-  }
-  
-  // Special handling for single-name cases like "June was seen..."
-  // Check if a single word (potential first name) appears before action verbs
-  if (!answers['header.recipientName']) {
-    const singleNameMatch = fullText.match(/^([A-Z][a-z]{2,20})\s+(?:was|is|has been|appeared|presented|arrived)/im);
-    if (singleNameMatch) {
-      const name = singleNameMatch[1];
-      // Don't match months when they appear with date patterns like "June 12"
-      const isLikelyMonth = /\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}/i.test(fullText.substring(0, 50));
-      const isValidName = !['Care', 'Client', 'Recipient', 'Coordinator', 'Senior', 'Home', 'Community', 'The', 'This'].includes(name);
-      
-      if (isValidName && (!isLikelyMonth || name.length > 4)) {
-        putAnswer(answers, 'header.recipientName', name, 'medium', `deterministic: single name pattern`);
-      }
-    }
-  }
-
-  // Extract ID from full text (not just line by line) - handles "Recipient ID 58421793" anywhere in text
-  if (!answers['header.recipientIdentifier']) {
-    const idPatterns = [
-      /(?:recipient|client)\s+id\s*[:#\-]?\s*([A-Za-z0-9\-]{5,})/i,
-      /\bid\s*(?:number|#)?\s*[:#\-]?\s*([0-9]{5,})/i,
-      /\bid#([A-Za-z0-9]{5,})/i,
-    ];
-    for (const pattern of idPatterns) {
-      const match = fullText.match(pattern);
-      if (match) {
-        putAnswer(answers, 'header.recipientIdentifier', match[1].trim(), 'high', `deterministic: ID pattern`);
-        break;
-      }
-    }
-  }
+  // NOTE: recipientName, recipientIdentifier, dob extraction disabled — manual entry only (HIPAA)
 
   for (const line of lines) {
     const lowerLine = line.toLowerCase();
@@ -545,11 +328,10 @@ function extractDeterministicAnswers(transcript: string): AnswerRecord {
       // Written month format: March 12, 2026
       const writtenDateMatch = line.match(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s+(\d{4})\b/i);
       if (writtenDateMatch) {
-        const monthNames = ['january','february','march','april','may','june','july','august','september','october','november','december'];
-        const month = String(monthNames.indexOf(writtenDateMatch[1].toLowerCase()) + 1).padStart(2, '0');
-        const day = writtenDateMatch[2].padStart(2, '0');
-        const year = writtenDateMatch[3];
-        putAnswer(answers, 'header.date', `${month}/${day}/${year}`, 'high', `deterministic: ${line}`);
+        const parsed = DateTimeUtils.parseWrittenDate(writtenDateMatch[0]);
+        if (parsed) {
+          putAnswer(answers, 'header.date', parsed, 'high', `deterministic: ${line}`);
+        }
       } else {
         // Numeric format: 03/12/2026
         const dateMatch = line.match(/(?:visit date|date|on)\s*[:\-]?\s*(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})/i) || 
@@ -583,6 +365,8 @@ function extractDeterministicAnswers(transcript: string): AnswerRecord {
       }
     }
 
+    // NOTE: DOB extraction disabled - manual entry only (HIPAA compliance)
+    /* DISABLED
     // DOB - various formats including written months
     if (!answers['header.dob']) {
       const writtenDobMatch = line.match(/(?:dob|date of birth|born)[:\-]?\s*(?:on\s+)?([A-Za-z]+\s+\d{1,2},?\s+\d{4})/i);
@@ -598,6 +382,7 @@ function extractDeterministicAnswers(transcript: string): AnswerRecord {
         }
       }
     }
+    */
 
     // Location - residence, home, facility, etc.
     if (!answers['header.location']) {
@@ -612,6 +397,8 @@ function extractDeterministicAnswers(transcript: string): AnswerRecord {
       }
     }
 
+    // NOTE: Care Coordinator name extraction disabled - manual entry only (signature authenticity)
+    /* DISABLED
     // Care Coordinator name - look for "CC" or "Care Coordinator" mentions
     if (!answers['signature.careCoordinatorName']) {
       const coordinatorMatch = line.match(/(?:cc|care coordinator|coordinator)\s+(?:met|visited|reviewed|spoke)/i);
@@ -619,6 +406,7 @@ function extractDeterministicAnswers(transcript: string): AnswerRecord {
         // CC is mentioned but no name given - that's ok, we'll leave it blank
       }
     }
+    */
 
     // SIH checkbox - check if mentioned
     if (lowerLine.includes('sih') || lowerLine.includes('senior in-home')) {
@@ -638,9 +426,10 @@ function extractDeterministicAnswers(transcript: string): AnswerRecord {
     putAnswer(answers, 'header.location', inferredLocation, 'medium', `deterministic: ${inferredLocation}`);
   }
 
-  if (!answers['signature.dateSigned'] && answers['header.date']?.answer) {
-    putAnswer(answers, 'signature.dateSigned', answers['header.date'].answer, 'medium', 'deterministic: derived from visit date');
-  }
+  // NOTE: signature.dateSignied auto-fill disabled - manual entry only (signature authenticity)
+  // if (!answers['signature.dateSigned'] && answers['header.date']?.answer) {
+  //   putAnswer(answers, 'signature.dateSigned', answers['header.date'].answer, 'medium', 'deterministic: derived from visit date');
+  // }
 
   const extractedSections = extractNarrativeSections(transcript);
   for (const [fieldPath, value] of Object.entries(extractedSections)) {
@@ -654,11 +443,14 @@ function extractDeterministicAnswers(transcript: string): AnswerRecord {
 
 function buildAnswersFromExtractedData(data: ExtractedData): AnswerRecord {
   const answers: AnswerRecord = {};
-  putAnswer(answers, 'header.recipientName', data.recipientName, data.recipientName ? 'medium' : 'low', 'single-pass');
+  // NOTE: Sensitive PII fields excluded - manual entry only (HIPAA compliance)
+  // putAnswer(answers, 'header.recipientName', data.recipientName, data.recipientName ? 'medium' : 'low', 'single-pass');
   putAnswer(answers, 'header.date', normalizeDateValue(data.date), data.date ? 'medium' : 'low', 'single-pass');
   putAnswer(answers, 'header.time', normalizeTimeValue(data.time), data.time ? 'medium' : 'low', 'single-pass');
-  putAnswer(answers, 'header.recipientIdentifier', data.recipientIdentifier, data.recipientIdentifier ? 'medium' : 'low', 'single-pass');
-  putAnswer(answers, 'header.dob', normalizeDateValue(data.dob), data.dob ? 'medium' : 'low', 'single-pass');
+  // NOTE: recipientIdentifier excluded - manual entry only (PII)
+  // putAnswer(answers, 'header.recipientIdentifier', data.recipientIdentifier, data.recipientIdentifier ? 'medium' : 'low', 'single-pass');
+  // NOTE: DOB excluded - manual entry only (PII)
+  // putAnswer(answers, 'header.dob', normalizeDateValue(data.dob), data.dob ? 'medium' : 'low', 'single-pass');
   putAnswer(answers, 'header.location', data.location, data.location ? 'medium' : 'low', 'single-pass');
   putAnswer(answers, 'careCoordinationType.sih', data.sih ? 'true' : 'false', data.sih ? 'medium' : 'low', 'single-pass');
   putAnswer(answers, 'careCoordinationType.hcbw', data.hcbw ? 'true' : 'false', data.hcbw ? 'medium' : 'low', 'single-pass');
@@ -668,8 +460,9 @@ function buildAnswersFromExtractedData(data: ExtractedData): AnswerRecord {
   putAnswer(answers, 'narrative.progressTowardGoals', data.progressTowardGoals, narrativeConfidence(data.progressTowardGoals), 'single-pass');
   putAnswer(answers, 'narrative.followUpTasks', data.followUpTasks, narrativeConfidence(data.followUpTasks), 'single-pass');
   putAnswer(answers, 'narrative.additionalNotes', data.additionalNotes, narrativeConfidence(data.additionalNotes), 'single-pass');
-  putAnswer(answers, 'signature.careCoordinatorName', data.careCoordinatorName, data.careCoordinatorName ? 'medium' : 'low', 'single-pass');
-  putAnswer(answers, 'signature.dateSigned', normalizeDateValue(data.dateSigned), data.dateSigned ? 'medium' : 'low', 'single-pass');
+  // NOTE: Signature fields excluded - manual entry only (authenticity)
+  // putAnswer(answers, 'signature.careCoordinatorName', data.careCoordinatorName, data.careCoordinatorName ? 'medium' : 'low', 'single-pass');
+  // putAnswer(answers, 'signature.dateSigned', normalizeDateValue(data.dateSigned), data.dateSigned ? 'medium' : 'low', 'single-pass');
   return answers;
 }
 
@@ -690,7 +483,7 @@ function buildRepairFieldList(form: MonthlyCareCoordinationForm, answers: Answer
 
   for (const field of NARRATIVE_FIELDS) {
     const answer = answers[field]?.answer || '';
-    if (answer.trim().length < 20) {
+    if (answer.trim().length < 80) {
       fields.add(field);
     }
   }
@@ -777,11 +570,6 @@ function buildFormFromAnswers(answers: AnswerRecord, transcript: string): Monthl
     }
   }
 
-  // Default signature date to visit date if not set
-  if (!form.signature.dateSigned && form.header.date) {
-    form.signature.dateSigned = form.header.date;
-  }
-
   return form;
 }
 
@@ -855,41 +643,28 @@ function buildKeySections(form: MonthlyCareCoordinationForm, transcript: string)
   };
 }
 
-function buildConfidenceScores(form: MonthlyCareCoordinationForm, answers: AnswerRecord): FieldConfidence[] {
-  const confidence: FieldConfidence[] = [];
-  const allFields: FieldPath[] = [
-    'header.recipientName',
-    'header.date',
-    'header.time',
-    'header.recipientIdentifier',
-    'header.dob',
-    'header.location',
-    'careCoordinationType.sih',
-    'careCoordinationType.hcbw',
-    'narrative.recipientAndVisitObservations',
-    'narrative.healthEmotionalStatus',
-    'narrative.reviewOfServices',
-    'narrative.progressTowardGoals',
-    'narrative.additionalNotes',
-    'narrative.followUpTasks',
-    'signature.careCoordinatorName',
-    'signature.signature',
-    'signature.dateSigned',
-  ];
+const ALL_FORM_FIELDS: FieldPath[] = [
+  'header.recipientName',
+  'header.date',
+  'header.time',
+  'header.recipientIdentifier',
+  'header.dob',
+  'header.location',
+  'careCoordinationType.sih',
+  'careCoordinationType.hcbw',
+  'narrative.recipientAndVisitObservations',
+  'narrative.healthEmotionalStatus',
+  'narrative.reviewOfServices',
+  'narrative.progressTowardGoals',
+  'narrative.additionalNotes',
+  'narrative.followUpTasks',
+  'signature.careCoordinatorName',
+  'signature.signature',
+  'signature.dateSigned',
+];
 
-  for (const field of allFields) {
-    const value = getFieldValue(form, field);
-    const answer = answers[field];
-
-    confidence.push({
-      field,
-      confidence: answer?.confidence || (hasAnswer(value) ? 'medium' : 'low'),
-      ocrConfidence: 100,
-      source: answer?.source || 'hybrid-fill',
-    });
-  }
-
-  return confidence;
+function buildConfidenceScores(_form: MonthlyCareCoordinationForm, answers: AnswerRecord): FieldConfidence[] {
+  return buildConfidenceFromAnswers(ALL_FORM_FIELDS, answers);
 }
 
 function buildFallbackResult(transcript: string, deterministicAnswers: AnswerRecord): NarrativeQAResult {
@@ -1045,27 +820,27 @@ function extractNarrativeSections(transcript: string): Partial<Record<FieldPath,
   }> = [
     {
       field: 'narrative.recipientAndVisitObservations',
-      keywords: ['recipient & visit observations', 'recipient and visit observations', 'visit observations', 'cc met with', 'care coordinator met', 'the client presented', 'client was', 'client appeared', 'support staff were present', 'during the visit', 'the visit concluded'],
+      keywords: ['recipient & visit observations', 'recipient and visit observations', 'visit observations', 'cc met with', 'care coordinator met', 'the client presented', 'client was', 'client appeared', 'support staff were present', 'during the visit', 'the visit concluded', 'home environment', 'home condition'],
       description: 'visit observations'
     },
     {
       field: 'narrative.healthEmotionalStatus',
-      keywords: ['health/emotional status', 'health status', 'medication', 'medication adjustment', 'doctor', 'physician', 'hospital', 'fall', 'pain', 'behavior', 'emotional', 'mood', 'sleep', 'appetite', 'weight', 'blood pressure', 'feeling well', 'sleep has improved', 'health'],
+      keywords: ['health/emotional status', 'health status', 'medication', 'medication adjustment', 'doctor', 'physician', 'hospital', 'fall', 'pain', 'behavior', 'emotional', 'mood', 'sleep', 'appetite', 'weight', 'blood pressure', 'feeling well', 'sleep has improved', 'health', 'diagnosis', 'symptom', 'vital signs'],
       description: 'health status'
     },
     {
       field: 'narrative.reviewOfServices',
-      keywords: ['review of services', 'services review', 'services being provided', 'residential', 'supported employment', 'day habilitation', 'caregiver', 'aide', 'nursing', 'therapy', 'service', 'provider', 'staff', 'contracted providers'],
+      keywords: ['review of services', 'services review', 'services being provided', 'residential', 'supported employment', 'day habilitation', 'personal care', 'aide', 'nursing', 'therapy', 'provider', 'contracted providers', 'transportation', 'service hours'],
       description: 'services review'
     },
     {
       field: 'narrative.progressTowardGoals',
-      keywords: ['progress toward goals', 'goals', 'goal progress', 'progress', 'barrier', 'independence', 'skill', 'improving', 'achieving', 'positive reinforcement', 'doing well', 'cooperate with staff', 'manage interpersonal'],
+      keywords: ['progress toward goals', 'goal progress', 'progress toward', 'barrier to', 'independence', 'skill development', 'achieving', 'positive reinforcement', 'cooperate with staff', 'manage interpersonal', 'care plan goal'],
       description: 'goals progress'
     },
     {
       field: 'narrative.followUpTasks',
-      keywords: ['follow up tasks', 'follow-up tasks', 'care coordinator follow up', 'follow-up needed', 'coordinator will', 'schedule', 'appointment', 'referral', 'call', 'contact', 'arrange', 'order', 'future visit was discussed'],
+      keywords: ['follow up tasks', 'follow-up tasks', 'care coordinator follow up', 'follow-up needed', 'coordinator will', 'next visit', 'schedule appointment', 'referral', 'arrange', 'future visit was discussed'],
       description: 'follow-up tasks'
     },
   ];
@@ -1081,7 +856,7 @@ function extractNarrativeSections(transcript: string): Partial<Record<FieldPath,
       const lowerSentence = sentence.toLowerCase();
       
       // Check if sentence contains keywords for this section
-      const matches = sectionDef.keywords.some(keyword => lowerSentence.includes(keyword.toLowerCase()));
+      const matches = sectionDef.keywords.some(keyword => lowerSentence.includes(keyword));
       
       if (matches) {
         matchingSentences.push(sentence.trim());

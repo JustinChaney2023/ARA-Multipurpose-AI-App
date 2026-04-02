@@ -5,7 +5,7 @@ import fs from 'fs/promises';
 import { fileURLToPath } from 'url';
 
 import { extractTextFromFile } from './ocr.js';
-import { checkOllamaHealth, listModels } from './ollama.js';
+import { checkOllamaHealth, listModels, getCacheStats, clearLLMCache } from './ollama.js';
 import { generateProfessionalPDF } from './pdfGenerator.js';
 import { fillNarrativeWithQA } from './narrativeQA.js';
 import { logger, createProgressTracker } from './logger.js';
@@ -18,7 +18,7 @@ import { requestLogger, performanceLogger } from './middleware/requestLogger.js'
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { securityHeaders, configureCors, requestId, securityAudit } from './middleware/security.js';
 import { extractionRateLimit, exportRateLimit, healthRateLimit, circuitBreakerMiddleware, llmCircuitBreaker } from './middleware/rateLimit.js';
-import { validateRequest, validateFileRequest, ExtractFillSchema, ExportPDFSchema, SummarizeSchema, FormatFieldSchema } from './middleware/validation.js';
+import { validateRequest, validateFileRequest, ExtractFillSchema, ExportPDFSchema, SummarizeSchema } from './middleware/validation.js';
 import { requestTracking, setupGracefulShutdown } from './middleware/gracefulShutdown.js';
 import type { ExtractionResult } from '@ara/shared';
 
@@ -70,16 +70,65 @@ app.get('/health', healthRateLimit, async (_req, res) => {
       warmedUp: isWarmedUp(),
     },
     models: models.slice(0, 5),
+    optimizations: {
+      caching: config.ollama.cache.enabled,
+      pooling: config.ollama.pool.enabled,
+      gpu: config.ollama.gpu.enabled,
+    },
+  });
+});
+
+// Cache management endpoints
+app.get('/admin/cache', healthRateLimit, (_req, res) => {
+  const stats = getCacheStats();
+  res.json({
+    enabled: config.ollama.cache.enabled,
+    ...stats,
+    config: {
+      ttl: config.ollama.cache.ttl,
+      maxSize: config.ollama.cache.maxSize,
+    },
+  });
+});
+
+app.post('/admin/cache/clear', healthRateLimit, (_req, res) => {
+  clearLLMCache();
+  res.json({ message: 'Cache cleared successfully' });
+});
+
+// Performance/optimization status
+app.get('/admin/performance', healthRateLimit, (_req, res) => {
+  res.json({
+    ollama: {
+      gpu: {
+        enabled: config.ollama.gpu.enabled,
+        numGpuLayers: config.ollama.gpu.numGpuLayers,
+        mainGpu: config.ollama.gpu.mainGpu,
+      },
+      performance: {
+        numThread: config.ollama.performance.numThread,
+        numBatch: config.ollama.performance.numBatch,
+        numPredict: config.ollama.performance.numPredict,
+      },
+      cache: {
+        enabled: config.ollama.cache.enabled,
+        ...getCacheStats(),
+      },
+      pool: {
+        enabled: config.ollama.pool.enabled,
+        maxSockets: config.ollama.pool.maxSockets,
+      },
+    },
   });
 });
 
 // OCR endpoint for PDFs and images
-app.post('/extract/pdf', 
+app.post('/extract/pdf',
   extractionRateLimit,
   validateFileRequest,
-  upload.single('file'), 
+  upload.single('file'),
   async (req, res, next) => {
-  const requestId = Math.random().toString(36).substring(7);
+  const requestId = (req as unknown as Record<string, string>).id;
   const progress = createProgressTracker('EXTRACT');
   
   try {
@@ -150,7 +199,7 @@ app.post('/extract/pdf',
     };
 
     // Clean up uploaded file
-    await fs.unlink(filePath).catch(() => {});
+    await fs.unlink(filePath).catch(err => logger.warn('Upload cleanup failed', { path: filePath, error: (err as Error).message }));
     
     progress.complete('Extraction successful');
     logger.info('Request complete', { requestId });
@@ -165,7 +214,7 @@ app.post('/extract/pdf',
     
     // Clean up on error
     if (req.file) {
-      await fs.unlink(req.file.path).catch(() => {});
+      await fs.unlink(req.file.path).catch(err => logger.warn('Upload cleanup failed', { path: req.file!.path, error: (err as Error).message }));
     }
     
     next(error);
@@ -173,11 +222,11 @@ app.post('/extract/pdf',
 });
 
 // Summarize endpoint - generate human-readable summary of OCR text
-app.post('/summarize', 
+app.post('/summarize',
   extractionRateLimit,
   validateRequest(SummarizeSchema),
   async (req, res, next) => {
-  const requestId = Math.random().toString(36).substring(7);
+  const requestId = (req as unknown as Record<string, string>).id;
   const startTime = Date.now();
   
   try {
@@ -240,7 +289,7 @@ app.post('/extract/fill',
   circuitBreakerMiddleware(llmCircuitBreaker),
   validateRequest(ExtractFillSchema),
   async (req, res, next) => {
-  const requestId = Math.random().toString(36).substring(7);
+  const requestId = (req as unknown as Record<string, string>).id;
   const progress = createProgressTracker('FILL');
   
   try {
@@ -298,7 +347,7 @@ app.post('/export/pdf',
   exportRateLimit,
   validateRequest(ExportPDFSchema),
   async (req, res, next) => {
-  const requestId = Math.random().toString(36).substring(7);
+  const requestId = (req as unknown as Record<string, string>).id;
   
   try {
     const { form } = req.body;
@@ -390,7 +439,7 @@ app.post('/export/preview',
   exportRateLimit,
   validateRequest(ExportPDFSchema),
   async (req, res, next) => {
-  const requestId = Math.random().toString(36).substring(7);
+  const requestId = (req as unknown as Record<string, string>).id;
   
   try {
     const { form } = req.body;
@@ -417,16 +466,23 @@ app.post('/export/preview',
 });
 
 // Get template mapping
+const ALLOWED_TEMPLATE_VERSIONS = new Set(['mccmc_v1', 'mccmc_v2']);
+
 app.get('/template/:version/mapping', async (req, res) => {
   try {
     const { version } = req.params;
+
+    if (!ALLOWED_TEMPLATE_VERSIONS.has(version)) {
+      return res.status(400).json({ error: `Unknown template version: ${version}` });
+    }
+
     logger.debug('Template mapping requested', { version });
-    
+
     const mappingPath = path.join(__dirname, '..', '..', '..', 'templates', version, 'mapping.json');
     const mapping = await fs.readFile(mappingPath, 'utf-8');
     res.json(JSON.parse(mapping));
   } catch (error) {
-    logger.error('Template not found', { 
+    logger.error('Template not found', {
       version: req.params.version,
       error: error instanceof Error ? error.message : 'Unknown'
     });
