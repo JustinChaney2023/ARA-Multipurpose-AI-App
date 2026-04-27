@@ -14,17 +14,17 @@ export function JsonImport({ onImport }: JsonImportProps) {
 
   const processFile = (file: File) => {
     setError(null);
-    
+
     if (!file.name.endsWith('.json')) {
       setError('Please upload a JSON file');
       return;
     }
 
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = e => {
       try {
         const data = JSON.parse(e.target?.result as string);
-        
+
         // Validate structure
         if (!data.form || !data.version) {
           throw new Error('Invalid file format');
@@ -53,7 +53,7 @@ export function JsonImport({ onImport }: JsonImportProps) {
           type="file"
           ref={fileInputRef}
           accept=".json"
-          onChange={(e) => e.target.files?.[0] && processFile(e.target.files[0])}
+          onChange={e => e.target.files?.[0] && processFile(e.target.files[0])}
           style={{ display: 'none' }}
         />
         <button

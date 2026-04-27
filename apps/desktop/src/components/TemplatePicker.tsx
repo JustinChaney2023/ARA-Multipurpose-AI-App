@@ -16,14 +16,15 @@ export function TemplatePicker({ onSelect }: TemplatePickerProps) {
   const [searchQuery, setSearchQuery] = useState('');
 
   const templatesByCategory = getTemplatesByCategory();
-  
+
   // Filter templates by search
   const filteredCategories: Record<string, Template[]> = {};
   for (const [category, templates] of Object.entries(templatesByCategory)) {
-    const filtered = templates.filter(t => 
-      t.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.text.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.category.toLowerCase().includes(searchQuery.toLowerCase())
+    const filtered = templates.filter(
+      t =>
+        t.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        t.text.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        t.category.toLowerCase().includes(searchQuery.toLowerCase())
     );
     if (filtered.length > 0) {
       filteredCategories[category] = filtered;
@@ -86,9 +87,16 @@ export function TemplatePicker({ onSelect }: TemplatePickerProps) {
               flexDirection: 'column',
               animation: 'slideUp 0.2s ease-out',
             }}
-            onClick={(e) => e.stopPropagation()}
+            onClick={e => e.stopPropagation()}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '1rem',
+              }}
+            >
               <h2 style={{ fontSize: '1.25rem', fontWeight: 600, margin: 0 }}>Text Templates</h2>
               <button
                 onClick={() => setIsOpen(false)}
@@ -109,7 +117,7 @@ export function TemplatePicker({ onSelect }: TemplatePickerProps) {
               type="text"
               placeholder="Search templates..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={e => setSearchQuery(e.target.value)}
               style={{
                 width: '100%',
                 padding: '0.75rem',
@@ -139,18 +147,20 @@ export function TemplatePicker({ onSelect }: TemplatePickerProps) {
 
             {/* Add Custom Form */}
             {showAddCustom && (
-              <div style={{ 
-                background: '#f8fafc', 
-                padding: '1rem', 
-                borderRadius: '8px', 
-                marginBottom: '1rem',
-                border: '1px solid #e2e8f0',
-              }}>
+              <div
+                style={{
+                  background: '#f8fafc',
+                  padding: '1rem',
+                  borderRadius: '8px',
+                  marginBottom: '1rem',
+                  border: '1px solid #e2e8f0',
+                }}
+              >
                 <input
                   type="text"
                   placeholder="Category (e.g., Custom)"
                   value={newTemplate.category}
-                  onChange={(e) => setNewTemplate({ ...newTemplate, category: e.target.value })}
+                  onChange={e => setNewTemplate({ ...newTemplate, category: e.target.value })}
                   style={{
                     width: '100%',
                     padding: '0.5rem',
@@ -164,7 +174,7 @@ export function TemplatePicker({ onSelect }: TemplatePickerProps) {
                   type="text"
                   placeholder="Label (e.g., My Template)"
                   value={newTemplate.label}
-                  onChange={(e) => setNewTemplate({ ...newTemplate, label: e.target.value })}
+                  onChange={e => setNewTemplate({ ...newTemplate, label: e.target.value })}
                   style={{
                     width: '100%',
                     padding: '0.5rem',
@@ -177,7 +187,7 @@ export function TemplatePicker({ onSelect }: TemplatePickerProps) {
                 <textarea
                   placeholder="Template text..."
                   value={newTemplate.text}
-                  onChange={(e) => setNewTemplate({ ...newTemplate, text: e.target.value })}
+                  onChange={e => setNewTemplate({ ...newTemplate, text: e.target.value })}
                   rows={3}
                   style={{
                     width: '100%',
@@ -200,7 +210,7 @@ export function TemplatePicker({ onSelect }: TemplatePickerProps) {
                     borderRadius: '4px',
                     cursor: 'pointer',
                     fontSize: '0.875rem',
-                    opacity: (!newTemplate.label || !newTemplate.text) ? 0.5 : 1,
+                    opacity: !newTemplate.label || !newTemplate.text ? 0.5 : 1,
                   }}
                 >
                   Save Template
@@ -217,18 +227,20 @@ export function TemplatePicker({ onSelect }: TemplatePickerProps) {
               ) : (
                 Object.entries(filteredCategories).map(([category, templates]) => (
                   <div key={category} style={{ marginBottom: '1rem' }}>
-                    <h3 style={{ 
-                      fontSize: '0.75rem', 
-                      fontWeight: 600, 
-                      color: '#64748b', 
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.05em',
-                      margin: '0 0 0.5rem',
-                    }}>
+                    <h3
+                      style={{
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        color: '#64748b',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.05em',
+                        margin: '0 0 0.5rem',
+                      }}
+                    >
                       {category}
                     </h3>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                      {templates.map((template) => (
+                      {templates.map(template => (
                         <button
                           key={template.id}
                           onClick={() => handleSelect(template)}
@@ -242,14 +254,18 @@ export function TemplatePicker({ onSelect }: TemplatePickerProps) {
                             fontSize: '0.875rem',
                           }}
                         >
-                          <div style={{ fontWeight: 500, marginBottom: '0.25rem' }}>{template.label}</div>
-                          <div style={{ 
-                            fontSize: '0.75rem', 
-                            color: '#64748b',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                          }}>
+                          <div style={{ fontWeight: 500, marginBottom: '0.25rem' }}>
+                            {template.label}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: '0.75rem',
+                              color: '#64748b',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                            }}
+                          >
                             {template.text}
                           </div>
                         </button>

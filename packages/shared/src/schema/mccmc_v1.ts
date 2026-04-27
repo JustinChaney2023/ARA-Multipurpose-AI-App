@@ -71,7 +71,9 @@ export const ExtractionResultSchema = z.object({
   form: MonthlyCareCoordinationFormSchema,
   confidence: z.array(FieldConfidenceSchema),
   rawText: z.string(),
-  extractionMethod: z.enum(['ocr-only', 'llm-structured', 'llm-categorized', 'vision-llm']).default('ocr-only'),
+  extractionMethod: z
+    .enum(['ocr-only', 'llm-structured', 'llm-categorized', 'vision-llm'])
+    .default('ocr-only'),
   ollamaAvailable: z.boolean().default(false),
 });
 export type ExtractionResult = z.infer<typeof ExtractionResultSchema>;
@@ -115,7 +117,9 @@ export function validateForm(data: unknown): MonthlyCareCoordinationForm {
 }
 
 // Safe parse form data
-export function safeValidateForm(data: unknown): { success: true; data: MonthlyCareCoordinationForm } | { success: false; error: z.ZodError } {
+export function safeValidateForm(
+  data: unknown
+): { success: true; data: MonthlyCareCoordinationForm } | { success: false; error: z.ZodError } {
   const result = MonthlyCareCoordinationFormSchema.safeParse(data);
   if (result.success) {
     return { success: true, data: result.data };
@@ -124,7 +128,7 @@ export function safeValidateForm(data: unknown): { success: true; data: MonthlyC
 }
 
 // Get field path from form structure
-export type FieldPath = 
+export type FieldPath =
   | `header.${keyof FormHeader}`
   | `careCoordinationType.${keyof CareCoordinationType}`
   | `contactType.${keyof ContactType}`
@@ -143,27 +147,117 @@ export interface FieldMetadata {
 // All fields metadata
 export const FORM_FIELDS: FieldMetadata[] = [
   // Header
-  { path: 'header.recipientName', label: 'Recipient Name', type: 'text', required: true, section: 'Header' },
+  {
+    path: 'header.recipientName',
+    label: 'Recipient Name',
+    type: 'text',
+    required: true,
+    section: 'Header',
+  },
   { path: 'header.date', label: 'Date', type: 'text', required: true, section: 'Header' },
   { path: 'header.time', label: 'Time', type: 'text', required: false, section: 'Header' },
-  { path: 'header.recipientIdentifier', label: 'Recipient Identifier', type: 'text', required: false, section: 'Header' },
+  {
+    path: 'header.recipientIdentifier',
+    label: 'Recipient Identifier',
+    type: 'text',
+    required: false,
+    section: 'Header',
+  },
   { path: 'header.dob', label: 'Date of Birth', type: 'text', required: false, section: 'Header' },
   { path: 'header.location', label: 'Location', type: 'text', required: false, section: 'Header' },
   // Care Coordination Type
-  { path: 'careCoordinationType.sih', label: 'SIH', type: 'checkbox', required: false, section: 'Care Coordination Type' },
-  { path: 'careCoordinationType.hcbw', label: 'HCBW', type: 'checkbox', required: false, section: 'Care Coordination Type' },
+  {
+    path: 'careCoordinationType.sih',
+    label: 'SIH',
+    type: 'checkbox',
+    required: false,
+    section: 'Care Coordination Type',
+  },
+  {
+    path: 'careCoordinationType.hcbw',
+    label: 'HCBW',
+    type: 'checkbox',
+    required: false,
+    section: 'Care Coordination Type',
+  },
   // Contact Type
-  { path: 'contactType.faceToFaceVisit', label: 'Face to Face Visit with Client', type: 'checkbox', required: false, section: 'Contact Type' },
-  { path: 'contactType.otherMonitoringContact', label: 'Other Monitoring Contact with Client or Legal Rep', type: 'checkbox', required: false, section: 'Contact Type' },
-  { path: 'contactType.homeVisit', label: 'Home Visit', type: 'checkbox', required: false, section: 'Contact Type' },
-  { path: 'contactType.serviceSiteVisit', label: 'Service Site Visit', type: 'checkbox', required: false, section: 'Contact Type' },
-  { path: 'contactType.whatService', label: 'What Service', type: 'text', required: false, section: 'Contact Type' },
+  {
+    path: 'contactType.faceToFaceVisit',
+    label: 'Face to Face Visit with Client',
+    type: 'checkbox',
+    required: false,
+    section: 'Contact Type',
+  },
+  {
+    path: 'contactType.otherMonitoringContact',
+    label: 'Other Monitoring Contact with Client or Legal Rep',
+    type: 'checkbox',
+    required: false,
+    section: 'Contact Type',
+  },
+  {
+    path: 'contactType.homeVisit',
+    label: 'Home Visit',
+    type: 'checkbox',
+    required: false,
+    section: 'Contact Type',
+  },
+  {
+    path: 'contactType.serviceSiteVisit',
+    label: 'Service Site Visit',
+    type: 'checkbox',
+    required: false,
+    section: 'Contact Type',
+  },
+  {
+    path: 'contactType.whatService',
+    label: 'What Service',
+    type: 'text',
+    required: false,
+    section: 'Contact Type',
+  },
   // Narrative
-  { path: 'narrative.recipientAndVisitObservations', label: 'Recipient & Visit Observations', type: 'textarea', required: false, section: 'Narrative' },
-  { path: 'narrative.healthEmotionalStatus', label: 'Health/Emotional Status', type: 'textarea', required: false, section: 'Narrative' },
-  { path: 'narrative.reviewOfServices', label: 'Review of Services', type: 'textarea', required: false, section: 'Narrative' },
-  { path: 'narrative.progressTowardGoals', label: 'Progress toward Goals', type: 'textarea', required: false, section: 'Narrative' },
-  { path: 'narrative.additionalNotes', label: 'Additional Notes', type: 'textarea', required: false, section: 'Narrative' },
+  {
+    path: 'narrative.recipientAndVisitObservations',
+    label: 'Recipient & Visit Observations',
+    type: 'textarea',
+    required: false,
+    section: 'Narrative',
+  },
+  {
+    path: 'narrative.healthEmotionalStatus',
+    label: 'Health/Emotional Status',
+    type: 'textarea',
+    required: false,
+    section: 'Narrative',
+  },
+  {
+    path: 'narrative.reviewOfServices',
+    label: 'Review of Services',
+    type: 'textarea',
+    required: false,
+    section: 'Narrative',
+  },
+  {
+    path: 'narrative.progressTowardGoals',
+    label: 'Progress toward Goals',
+    type: 'textarea',
+    required: false,
+    section: 'Narrative',
+  },
+  {
+    path: 'narrative.additionalNotes',
+    label: 'Additional Notes',
+    type: 'textarea',
+    required: false,
+    section: 'Narrative',
+  },
   // Reviewer notes
-  { path: 'notesForReviewer', label: 'Notes for Reviewer', type: 'textarea', required: false, section: 'Reviewer' },
+  {
+    path: 'notesForReviewer',
+    label: 'Notes for Reviewer',
+    type: 'textarea',
+    required: false,
+    section: 'Reviewer',
+  },
 ];

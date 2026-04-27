@@ -22,8 +22,11 @@ export function setTheme(theme: Theme): void {
 
 export function applyTheme(theme: Theme): void {
   const root = document.documentElement;
-  
-  if (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+
+  if (
+    theme === 'dark' ||
+    (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+  ) {
     root.classList.add('dark');
   } else {
     root.classList.remove('dark');
@@ -33,7 +36,7 @@ export function applyTheme(theme: Theme): void {
 export function initTheme(): void {
   const theme = getTheme();
   applyTheme(theme);
-  
+
   // Listen for system theme changes
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
     if (getTheme() === 'system') {

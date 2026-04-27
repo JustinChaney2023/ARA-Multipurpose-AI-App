@@ -20,28 +20,36 @@ Form Output
 ## Extraction Methods
 
 ### 1. `llm-categorized` (NEW) ⭐ Recommended
+
 Two-step intelligent processing:
+
 1. **Categorization**: LLM analyzes raw OCR and extracts structured fields
 2. **Validation**: Checks for invalid dates, missing fields, inconsistencies
 
 **Best for**: Medium-quality OCR, messy handwriting, unstructured notes
 
-### 2. `vision-llm` 
+### 2. `vision-llm`
+
 Multimodal model sees the image directly:
+
 - Bypasses OCR entirely
 - Reads handwriting visually
 
 **Best for**: Very poor OCR confidence (< 50%), handwritten forms
 
 ### 3. `llm-structured`
+
 Standard text-to-form conversion:
+
 - Direct prompt to extract from OCR text
 - No validation step
 
 **Best for**: Clean typed text, good OCR confidence
 
 ### 4. `ocr-only`
+
 Rule-based pattern matching:
+
 - Regex patterns for headers
 - Keyword matching for checkboxes
 - Section headers for narratives

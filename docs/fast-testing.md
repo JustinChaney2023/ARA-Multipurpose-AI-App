@@ -16,6 +16,7 @@ ollama pull qwen2.5:1.8b
 ```
 
 Set the model:
+
 ```powershell
 $env:OLLAMA_MODEL="qwen2.5:0.5b"
 npm run dev:service
@@ -34,16 +35,17 @@ This uses rule-based parsing only (fast but less accurate).
 
 ## Model Comparison
 
-| Model | Size | Speed | Quality |
-|-------|------|-------|---------|
-| qwen2.5:0.5b | 500MB | Very Fast | Basic |
-| phi3:mini | 2GB | Fast | Good |
-| qwen2.5:1.8b | 1.1GB | Fast | Better |
-| qwen:4b | 2.3GB | Slow | Best |
+| Model        | Size  | Speed     | Quality |
+| ------------ | ----- | --------- | ------- |
+| qwen2.5:0.5b | 500MB | Very Fast | Basic   |
+| phi3:mini    | 2GB   | Fast      | Good    |
+| qwen2.5:1.8b | 1.1GB | Fast      | Better  |
+| qwen:4b      | 2.3GB | Slow      | Best    |
 
 ## Timeout Changes
 
 With small models, timeouts are reduced:
+
 - Form filling: 1 minute (was 5-10 minutes)
 - Summary: 30 seconds (was 2 minutes)
 
@@ -58,6 +60,7 @@ With small models, timeouts are reduced:
 ## Troubleshooting
 
 If it still hangs:
+
 - Check Ollama: `curl http://localhost:11434/api/tags`
 - Try manual test: `ollama run qwen2.5:0.5b "Say hello"`
 - Use `DISABLE_LLM=true` as fallback

@@ -43,7 +43,9 @@ describe('fillNarrativeWithQA', () => {
   it('falls back to deterministic extraction when Ollama is unavailable', async () => {
     mockedCheckOllamaHealth.mockResolvedValue(false);
 
-    const result = await fillNarrativeWithQA(`Name: Mary Johnson\nDate: 02/15/2024\nVisited at home.\nSIH checked.`);
+    const result = await fillNarrativeWithQA(
+      `Name: Mary Johnson\nDate: 02/15/2024\nVisited at home.\nSIH checked.`
+    );
 
     expect(result.extractionMethod).toBe('ocr-only');
     // NOTE: recipientName is NOT extracted - manual entry only (HIPAA compliance)
@@ -78,7 +80,9 @@ describe('fillNarrativeWithQA', () => {
       }),
     });
 
-    const result = await fillNarrativeWithQA(`Name: Mary Johnson\nDate: 02/15/2024\nVisited at 2:30 PM at home.\nCoordinator: Jane Care`);
+    const result = await fillNarrativeWithQA(
+      `Name: Mary Johnson\nDate: 02/15/2024\nVisited at 2:30 PM at home.\nCoordinator: Jane Care`
+    );
 
     expect(['narrative-qa', 'qa-llm', 'ocr-only']).toContain(result.extractionMethod);
     // NOTE: recipientName is NOT extracted - manual entry only (HIPAA compliance)

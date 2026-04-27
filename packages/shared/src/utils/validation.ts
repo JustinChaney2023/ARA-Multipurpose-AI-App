@@ -31,113 +31,128 @@ export interface ValidationResult {
   all: ValidationIssue[];
 }
 
-export type ValidationRule = (value: unknown, form: MonthlyCareCoordinationForm) => ValidationIssue | null;
+export type ValidationRule = (
+  value: unknown,
+  form: MonthlyCareCoordinationForm
+) => ValidationIssue | null;
 
 // ============================================================================
 // Field Validation Rules
 // ============================================================================
 
 export const ValidationRules = {
-  required: (fieldName: string): ValidationRule => (value) => {
-    if (!value || (typeof value === 'string' && value.trim().length === 0)) {
-      return {
-        path: '' as FieldPath, // Will be set by validator
-        message: `${fieldName} is required`,
-        severity: 'error',
-        code: 'REQUIRED',
-      };
-    }
-    return null;
-  },
+  required:
+    (fieldName: string): ValidationRule =>
+    value => {
+      if (!value || (typeof value === 'string' && value.trim().length === 0)) {
+        return {
+          path: '' as FieldPath, // Will be set by validator
+          message: `${fieldName} is required`,
+          severity: 'error',
+          code: 'REQUIRED',
+        };
+      }
+      return null;
+    },
 
-  dateFormat: (fieldName: string): ValidationRule => (value) => {
-    if (!value) return null;
-    if (typeof value !== 'string') {
-      return {
-        path: '' as FieldPath,
-        message: `${fieldName} must be a string`,
-        severity: 'error',
-        code: 'INVALID_TYPE',
-      };
-    }
-    if (!DateTimeUtils.isValidDate(value)) {
-      return {
-        path: '' as FieldPath,
-        message: `${fieldName} should be in MM/DD/YYYY format`,
-        severity: 'error',
-        code: 'INVALID_DATE_FORMAT',
-      };
-    }
-    if (!DateTimeUtils.isDatePlausible(value)) {
-      return {
-        path: '' as FieldPath,
-        message: `${fieldName} appears to be an invalid date`,
-        severity: 'warning',
-        code: 'IMPLAUSIBLE_DATE',
-      };
-    }
-    return null;
-  },
+  dateFormat:
+    (fieldName: string): ValidationRule =>
+    value => {
+      if (!value) return null;
+      if (typeof value !== 'string') {
+        return {
+          path: '' as FieldPath,
+          message: `${fieldName} must be a string`,
+          severity: 'error',
+          code: 'INVALID_TYPE',
+        };
+      }
+      if (!DateTimeUtils.isValidDate(value)) {
+        return {
+          path: '' as FieldPath,
+          message: `${fieldName} should be in MM/DD/YYYY format`,
+          severity: 'error',
+          code: 'INVALID_DATE_FORMAT',
+        };
+      }
+      if (!DateTimeUtils.isDatePlausible(value)) {
+        return {
+          path: '' as FieldPath,
+          message: `${fieldName} appears to be an invalid date`,
+          severity: 'warning',
+          code: 'IMPLAUSIBLE_DATE',
+        };
+      }
+      return null;
+    },
 
-  timeFormat: (fieldName: string): ValidationRule => (value) => {
-    if (!value) return null;
-    if (typeof value !== 'string') {
-      return {
-        path: '' as FieldPath,
-        message: `${fieldName} must be a string`,
-        severity: 'error',
-        code: 'INVALID_TYPE',
-      };
-    }
-    if (!DateTimeUtils.isValidTime(value)) {
-      return {
-        path: '' as FieldPath,
-        message: `${fieldName} should be in HH:MM format`,
-        severity: 'warning',
-        code: 'INVALID_TIME_FORMAT',
-      };
-    }
-    return null;
-  },
+  timeFormat:
+    (fieldName: string): ValidationRule =>
+    value => {
+      if (!value) return null;
+      if (typeof value !== 'string') {
+        return {
+          path: '' as FieldPath,
+          message: `${fieldName} must be a string`,
+          severity: 'error',
+          code: 'INVALID_TYPE',
+        };
+      }
+      if (!DateTimeUtils.isValidTime(value)) {
+        return {
+          path: '' as FieldPath,
+          message: `${fieldName} should be in HH:MM format`,
+          severity: 'warning',
+          code: 'INVALID_TIME_FORMAT',
+        };
+      }
+      return null;
+    },
 
-  minLength: (fieldName: string, min: number): ValidationRule => (value) => {
-    if (!value || typeof value !== 'string') return null;
-    if (value.trim().length < min) {
-      return {
-        path: '' as FieldPath,
-        message: `${fieldName} should be at least ${min} characters`,
-        severity: 'warning',
-        code: 'MIN_LENGTH',
-      };
-    }
-    return null;
-  },
+  minLength:
+    (fieldName: string, min: number): ValidationRule =>
+    value => {
+      if (!value || typeof value !== 'string') return null;
+      if (value.trim().length < min) {
+        return {
+          path: '' as FieldPath,
+          message: `${fieldName} should be at least ${min} characters`,
+          severity: 'warning',
+          code: 'MIN_LENGTH',
+        };
+      }
+      return null;
+    },
 
-  maxLength: (fieldName: string, max: number): ValidationRule => (value) => {
-    if (!value || typeof value !== 'string') return null;
-    if (value.length > max) {
-      return {
-        path: '' as FieldPath,
-        message: `${fieldName} should not exceed ${max} characters`,
-        severity: 'warning',
-        code: 'MAX_LENGTH',
-      };
-    }
-    return null;
-  },
+  maxLength:
+    (fieldName: string, max: number): ValidationRule =>
+    value => {
+      if (!value || typeof value !== 'string') return null;
+      if (value.length > max) {
+        return {
+          path: '' as FieldPath,
+          message: `${fieldName} should not exceed ${max} characters`,
+          severity: 'warning',
+          code: 'MAX_LENGTH',
+        };
+      }
+      return null;
+    },
 
-  pattern: (fieldName: string, regex: RegExp, message: string): ValidationRule => (value) => {
-    if (!value || typeof value !== 'string') return null;
-    if (!regex.test(value)) {
-      return {
-        path: '' as FieldPath,
-        message,
-        severity: 'error',
-        code: 'PATTERN_MISMATCH',
-      };
-    }
-    return null;
-  },
+  pattern:
+    (fieldName: string, regex: RegExp, message: string): ValidationRule =>
+    value => {
+      if (!value || typeof value !== 'string') return null;
+      if (!regex.test(value)) {
+        return {
+          path: '' as FieldPath,
+          message,
+          severity: 'error',
+          code: 'PATTERN_MISMATCH',
+        };
+      }
+      return null;
+    },
 };
 
 // ============================================================================
@@ -156,29 +171,19 @@ const FIELD_VALIDATIONS: Partial<Record<FieldPath, FieldValidationConfig>> = {
     ],
   },
   'header.date': {
-    rules: [
-      ValidationRules.dateFormat('Date'),
-    ],
+    rules: [ValidationRules.dateFormat('Date')],
   },
   'header.time': {
-    rules: [
-      ValidationRules.timeFormat('Time'),
-    ],
+    rules: [ValidationRules.timeFormat('Time')],
   },
   'header.recipientIdentifier': {
-    rules: [
-      ValidationRules.maxLength('Recipient ID', 50),
-    ],
+    rules: [ValidationRules.maxLength('Recipient ID', 50)],
   },
   'header.dob': {
-    rules: [
-      ValidationRules.dateFormat('Date of birth'),
-    ],
+    rules: [ValidationRules.dateFormat('Date of birth')],
   },
   'header.location': {
-    rules: [
-      ValidationRules.maxLength('Location', 100),
-    ],
+    rules: [ValidationRules.maxLength('Location', 100)],
   },
   'narrative.recipientAndVisitObservations': {
     rules: [
@@ -205,24 +210,16 @@ const FIELD_VALIDATIONS: Partial<Record<FieldPath, FieldValidationConfig>> = {
     ],
   },
   'narrative.additionalNotes': {
-    rules: [
-      ValidationRules.maxLength('Additional Notes', 3000),
-    ],
+    rules: [ValidationRules.maxLength('Additional Notes', 3000)],
   },
   'narrative.followUpTasks': {
-    rules: [
-      ValidationRules.maxLength('Follow Up Tasks', 3000),
-    ],
+    rules: [ValidationRules.maxLength('Follow Up Tasks', 3000)],
   },
   'signature.careCoordinatorName': {
-    rules: [
-      ValidationRules.maxLength('Care Coordinator Name', 100),
-    ],
+    rules: [ValidationRules.maxLength('Care Coordinator Name', 100)],
   },
   'signature.dateSigned': {
-    rules: [
-      ValidationRules.dateFormat('Date signed'),
-    ],
+    rules: [ValidationRules.dateFormat('Date signed')],
   },
 };
 
@@ -344,7 +341,12 @@ export function autoFormatField(path: FieldPath, value: string): string {
   if (!metadata) return value;
 
   // Date fields
-  if (path.includes('date') || path.includes('Date') || path.includes('dob') || path.includes('DOB')) {
+  if (
+    path.includes('date') ||
+    path.includes('Date') ||
+    path.includes('dob') ||
+    path.includes('DOB')
+  ) {
     return DateTimeUtils.normalizeDate(value);
   }
 

@@ -34,17 +34,20 @@ export function PDFPreview({ form, isOpen, onClose }: PDFPreviewProps) {
     setError(null);
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/export/preview`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ form }),
-      });
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/export/preview`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ form }),
+        }
+      );
 
       if (!response.ok) {
         throw new Error('Preview generation failed');
       }
 
-      const data = await response.json() as { preview: string };
+      const data = (await response.json()) as { preview: string };
       if (previewUrl) {
         URL.revokeObjectURL(previewUrl);
       }
@@ -131,7 +134,11 @@ export function PDFPreview({ form, isOpen, onClose }: PDFPreviewProps) {
           {error && (
             <div style={{ textAlign: 'center', padding: '3rem', color: '#dc2626' }}>
               <p>{error}</p>
-              <button className="btn btn-secondary" onClick={generatePreview} style={{ marginTop: '1rem' }}>
+              <button
+                className="btn btn-secondary"
+                onClick={generatePreview}
+                style={{ marginTop: '1rem' }}
+              >
                 Try Again
               </button>
             </div>

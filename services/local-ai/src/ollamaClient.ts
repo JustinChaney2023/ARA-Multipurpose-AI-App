@@ -79,11 +79,11 @@ async function detectGPU(): Promise<GPUInfo> {
       return defaultInfo;
     }
 
-    const data = await response.json() as { 
-      models?: Array<{ 
-        size?: number; 
+    const data = (await response.json()) as {
+      models?: Array<{
+        size?: number;
         name?: string;
-        details?: { 
+        details?: {
           family?: string;
           families?: string[];
         };
@@ -94,13 +94,14 @@ async function detectGPU(): Promise<GPUInfo> {
 
     // Check if Ollama reports GPU processors
     if (data.processors && data.processors.length > 0) {
-      const gpuProcessor = data.processors.find(p => 
-        p.type.toLowerCase().includes('gpu') || 
-        p.type.toLowerCase().includes('cuda') ||
-        p.type.toLowerCase().includes('metal') ||
-        p.type.toLowerCase().includes('rocm')
+      const gpuProcessor = data.processors.find(
+        p =>
+          p.type.toLowerCase().includes('gpu') ||
+          p.type.toLowerCase().includes('cuda') ||
+          p.type.toLowerCase().includes('metal') ||
+          p.type.toLowerCase().includes('rocm')
       );
-      
+
       if (gpuProcessor && gpuProcessor.count > 0) {
         return {
           available: true,
@@ -227,16 +228,24 @@ export class OllamaClient {
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
-        const response = await this.executeRequest(optimizedRequest, timeout, stream, options.onStream);
+        const response = await this.executeRequest(
+          optimizedRequest,
+          timeout,
+          stream,
+          options.onStream
+        );
         return response;
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
 
         if (attempt < maxRetries) {
           const delay = Math.min(1000 * Math.pow(2, attempt), 10000); // Exponential backoff, max 10s
-          logger.warn(`Ollama request failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${delay}ms`, {
-            error: lastError.message,
-          });
+          logger.warn(
+            `Ollama request failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${delay}ms`,
+            {
+              error: lastError.message,
+            }
+          );
           await this.sleep(delay);
         }
       }
@@ -308,14 +317,20 @@ export class OllamaClient {
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
         // Don't retry on model-not-found (user needs to pull it first).
-        if (lastError.message.includes('not found') && lastError.message.includes('Run: ollama pull')) {
+        if (
+          lastError.message.includes('not found') &&
+          lastError.message.includes('Run: ollama pull')
+        ) {
           throw lastError;
         }
         if (attempt < retries) {
           const delay = Math.min(1000 * Math.pow(2, attempt), 10000);
-          logger.warn(`Ollama embed failed (attempt ${attempt + 1}/${retries + 1}), retrying in ${delay}ms`, {
-            error: lastError.message,
-          });
+          logger.warn(
+            `Ollama embed failed (attempt ${attempt + 1}/${retries + 1}), retrying in ${delay}ms`,
+            {
+              error: lastError.message,
+            }
+          );
           await this.sleep(delay);
         }
       }
@@ -332,9 +347,10 @@ export class OllamaClient {
   }
 
   private buildOptimizedRequest(request: OllamaRequest): OllamaRequest {
-    const numGpuLayers = config.ollama.gpu.numGpuLayers === -1
-      ? (this.gpuInfo?.recommendedLayers || 0)
-      : config.ollama.gpu.numGpuLayers;
+    const numGpuLayers =
+      config.ollama.gpu.numGpuLayers === -1
+        ? this.gpuInfo?.recommendedLayers || 0
+        : config.ollama.gpu.numGpuLayers;
 
     return {
       ...request,

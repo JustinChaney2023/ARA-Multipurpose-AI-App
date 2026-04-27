@@ -12,12 +12,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 
-import {
-  listPatients,
-  createPatient,
-  deletePatient,
-  type Patient,
-} from '../api/patients';
+import { listPatients, createPatient, deletePatient, type Patient } from '../api/patients';
 
 import { Icon } from './Icon';
 
@@ -63,7 +58,9 @@ export function PatientSidebar({ selectedPatientId, onSelectPatient }: PatientSi
     if (!name) return;
     try {
       const patient = await createPatient(name);
-      setPatients(prev => [...prev, patient].sort((a, b) => a.displayName.localeCompare(b.displayName)));
+      setPatients(prev =>
+        [...prev, patient].sort((a, b) => a.displayName.localeCompare(b.displayName))
+      );
       setNewName('');
       setIsCreating(false);
       onSelectPatient(patient.id);
@@ -90,11 +87,7 @@ export function PatientSidebar({ selectedPatientId, onSelectPatient }: PatientSi
     return (
       <aside className="sidebar collapsed">
         <div className="sidebar-header">
-          <button
-            className="btn-icon"
-            onClick={() => setCollapsed(false)}
-            title="Expand sidebar"
-          >
+          <button className="btn-icon" onClick={() => setCollapsed(false)} title="Expand sidebar">
             <Icon name="chevron-right" size={16} />
           </button>
         </div>
@@ -119,18 +112,10 @@ export function PatientSidebar({ selectedPatientId, onSelectPatient }: PatientSi
       <div className="sidebar-header">
         <h2>Patients</h2>
         <div style={{ display: 'flex', gap: '0.25rem' }}>
-          <button
-            className="btn-icon"
-            onClick={() => setIsCreating(v => !v)}
-            title="New patient"
-          >
+          <button className="btn-icon" onClick={() => setIsCreating(v => !v)} title="New patient">
             <Icon name="plus" size={16} />
           </button>
-          <button
-            className="btn-icon"
-            onClick={() => setCollapsed(true)}
-            title="Collapse sidebar"
-          >
+          <button className="btn-icon" onClick={() => setCollapsed(true)} title="Collapse sidebar">
             <Icon name="chevron-left" size={16} />
           </button>
         </div>
@@ -196,10 +181,7 @@ export function PatientSidebar({ selectedPatientId, onSelectPatient }: PatientSi
             >
               <span className="sidebar-item-name">{patient.displayName}</span>
               <div className="patient-actions">
-                <button
-                  onClick={e => handleDelete(patient.id, e)}
-                  title="Delete patient"
-                >
+                <button onClick={e => handleDelete(patient.id, e)} title="Delete patient">
                   <Icon name="trash" size={12} />
                 </button>
               </div>

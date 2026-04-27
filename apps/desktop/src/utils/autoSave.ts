@@ -15,7 +15,7 @@ export function startAutoSave(
   getData: () => { form: ExtractionResult['form']; rawText: string }
 ): void {
   stopAutoSave();
-  
+
   autoSaveInterval = setInterval(() => {
     const data = getData();
     if (data.form && data.rawText) {
@@ -48,7 +48,7 @@ export function loadDraft(): AutoSaveData | null {
   try {
     const stored = localStorage.getItem(AUTOSAVE_KEY);
     if (!stored) return null;
-    
+
     const data: AutoSaveData = JSON.parse(stored);
     // Only return if less than 7 days old
     const oneWeek = 7 * 24 * 60 * 60 * 1000;
@@ -69,12 +69,12 @@ export function clearDraft(): void {
 export function getDraftAge(): string | null {
   const draft = loadDraft();
   if (!draft) return null;
-  
+
   const diff = Date.now() - draft.timestamp;
   const minutes = Math.floor(diff / 60000);
   const hours = Math.floor(diff / 3600000);
   const days = Math.floor(diff / 86400000);
-  
+
   if (days > 0) return `${days} day${days > 1 ? 's' : ''} ago`;
   if (hours > 0) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
   if (minutes > 0) return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;

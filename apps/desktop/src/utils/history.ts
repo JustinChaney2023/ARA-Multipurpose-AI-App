@@ -18,7 +18,7 @@ export function saveToHistory(result: ExtractionResult): void {
   try {
     const history = getHistory();
     const existingIndex = history.findIndex(h => h.rawText === result.rawText);
-    
+
     const newItem: HistoryItem = {
       id: crypto.randomUUID(),
       timestamp: Date.now(),
@@ -73,10 +73,10 @@ export function findSimilarText(text: string, threshold: number = 0.8): HistoryI
   for (const item of history) {
     const itemLower = item.rawText.toLowerCase();
     const itemWords = new Set(itemLower.split(/\s+/));
-    
+
     const intersection = new Set([...textWords].filter(x => itemWords.has(x)));
     const similarity = intersection.size / Math.max(textWords.size, itemWords.size);
-    
+
     if (similarity >= threshold) {
       return item;
     }

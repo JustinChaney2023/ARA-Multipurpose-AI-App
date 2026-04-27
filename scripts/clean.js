@@ -26,7 +26,7 @@ console.log('Cleaning project...\n');
 
 for (const dir of dirsToRemove) {
   const fullPath = path.join(__dirname, '..', dir);
-  
+
   if (fs.existsSync(fullPath)) {
     try {
       if (isWindows) {

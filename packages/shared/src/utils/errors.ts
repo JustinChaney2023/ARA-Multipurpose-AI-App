@@ -3,7 +3,7 @@
  * Consistent error format across frontend and backend
  */
 
-export type ErrorCode = 
+export type ErrorCode =
   | 'EXTRACTION_FAILED'
   | 'OCR_FAILED'
   | 'LLM_UNAVAILABLE'
@@ -82,9 +82,9 @@ export class AppError extends Error {
     }
 
     return new AppError(
-      (err as Record<string, unknown>).code as ErrorCode || 'SERVER_ERROR',
-      (err as Record<string, unknown>).message as string || 'Unknown error',
-      (err as Record<string, unknown>).status as number || 500,
+      ((err as Record<string, unknown>).code as ErrorCode) || 'SERVER_ERROR',
+      ((err as Record<string, unknown>).message as string) || 'Unknown error',
+      ((err as Record<string, unknown>).status as number) || 500,
       (err as Record<string, unknown>).details as AppErrorDetails,
       (err as Record<string, unknown>).traceId as string
     );
@@ -102,10 +102,22 @@ export const Errors = {
     new AppError('OCR_FAILED', message, 500, details, traceId),
 
   llmUnavailable: (traceId?: string) =>
-    new AppError('LLM_UNAVAILABLE', 'AI service is currently unavailable. Using fallback extraction.', 503, undefined, traceId),
+    new AppError(
+      'LLM_UNAVAILABLE',
+      'AI service is currently unavailable. Using fallback extraction.',
+      503,
+      undefined,
+      traceId
+    ),
 
   llmTimeout: (traceId?: string) =>
-    new AppError('LLM_TIMEOUT', 'AI request timed out. Please try again or use text input.', 504, undefined, traceId),
+    new AppError(
+      'LLM_TIMEOUT',
+      'AI request timed out. Please try again or use text input.',
+      504,
+      undefined,
+      traceId
+    ),
 
   validationError: (field: string, message: string, traceId?: string) =>
     new AppError('VALIDATION_ERROR', message, 400, { field }, traceId),
@@ -117,7 +129,13 @@ export const Errors = {
     new AppError('NOT_FOUND', `${resource} not found`, 404, { resource }, traceId),
 
   fileTooLarge: (maxSize: string, traceId?: string) =>
-    new AppError('FILE_TOO_LARGE', `File exceeds maximum size of ${maxSize}`, 413, { maxSize }, traceId),
+    new AppError(
+      'FILE_TOO_LARGE',
+      `File exceeds maximum size of ${maxSize}`,
+      413,
+      { maxSize },
+      traceId
+    ),
 
   unsupportedFileType: (type: string, traceId?: string) =>
     new AppError('UNSUPPORTED_FILE_TYPE', `Unsupported file type: ${type}`, 415, { type }, traceId),
@@ -136,11 +154,10 @@ export const Errors = {
  * Type guard for AppError
  */
 export function isAppError(error: unknown): error is AppError {
-  return error instanceof AppError || 
-    (typeof error === 'object' && 
-     error !== null && 
-     'code' in error && 
-     'status' in error);
+  return (
+    error instanceof AppError ||
+    (typeof error === 'object' && error !== null && 'code' in error && 'status' in error)
+  );
 }
 
 /**

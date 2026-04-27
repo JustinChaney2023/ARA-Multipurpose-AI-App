@@ -4,9 +4,11 @@
 
 **Problem:** LLM parsing fails with timeout on first use.
 
-**Cause:** Ollama needs to load the model into memory on first run, which can take 1-2 minutes.
+**Cause:** Ollama needs to load the model into memory on first run, which can
+take 1-2 minutes.
 
 **Solution:**
+
 1. Wait for the first request to complete (it will timeout)
 2. The second request will be fast
 3. Or warm up the model manually:
@@ -46,4 +48,5 @@ ollama serve  # in separate terminal
 
 ## Fallback Behavior
 
-If Ollama fails, the app automatically falls back to OCR-only mode. You don't need to restart anything - it just works!
+If Ollama fails, the app automatically falls back to OCR-only mode. You don't
+need to restart anything - it just works!

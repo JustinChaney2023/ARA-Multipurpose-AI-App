@@ -27,29 +27,26 @@ console.log('');
 function runScript(scriptPath, shell) {
   console.log(`Running setup script: ${scriptPath}`);
   console.log('');
-  
+
   try {
     if (os === 'win32') {
       // Windows: Use PowerShell
-      const child = spawn('powershell.exe', [
-        '-ExecutionPolicy', 'Bypass',
-        '-File', scriptPath
-      ], {
+      const child = spawn('powershell.exe', ['-ExecutionPolicy', 'Bypass', '-File', scriptPath], {
         stdio: 'inherit',
-        cwd: rootDir
+        cwd: rootDir,
       });
-      
-      child.on('close', (code) => {
+
+      child.on('close', code => {
         process.exit(code);
       });
     } else {
       // macOS/Linux: Use bash
       const child = spawn('bash', [scriptPath], {
         stdio: 'inherit',
-        cwd: rootDir
+        cwd: rootDir,
       });
-      
-      child.on('close', (code) => {
+
+      child.on('close', code => {
         process.exit(code);
       });
     }
@@ -74,7 +71,7 @@ try {
   console.error(`Setup script not found: ${scriptPath}`);
   console.log('');
   console.log('Please run the setup manually:');
-  
+
   if (os === 'win32') {
     console.log('  PowerShell: .\\scripts\\setup.ps1');
     console.log('  Or: npm run setup:win');
@@ -83,7 +80,7 @@ try {
     console.log('  Or: npm run setup:linux');
     console.log('  Or: npm run setup:mac');
   }
-  
+
   process.exit(1);
 }
 

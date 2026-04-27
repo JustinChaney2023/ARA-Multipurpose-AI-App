@@ -17,7 +17,12 @@ const progressStore = new Map<string, ProgressInfo>();
 /**
  * Update progress for an operation
  */
-export function setProgress(operation: string, percent: number, message: string, error?: string): void {
+export function setProgress(
+  operation: string,
+  percent: number,
+  message: string,
+  error?: string
+): void {
   progressStore.set(operation, {
     operation,
     percent: Math.min(100, Math.max(0, percent)),

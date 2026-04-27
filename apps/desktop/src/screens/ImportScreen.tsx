@@ -35,13 +35,19 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 // /summarize/file. Must match the string passed to createProgressTracker server-side.
 const SUMMARIZE_PROGRESS_KEY = 'SUMMARIZE';
 
-export function ImportScreen({ onSummarized, onFormRequested, selectedPatientId }: ImportScreenProps) {
+export function ImportScreen({
+  onSummarized,
+  onFormRequested,
+  selectedPatientId,
+}: ImportScreenProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [statusMessage, setStatusMessage] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [ollamaStatus, setOllamaStatus] = useState<'checking' | 'connected' | 'disconnected'>('checking');
+  const [ollamaStatus, setOllamaStatus] = useState<'checking' | 'connected' | 'disconnected'>(
+    'checking'
+  );
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Poll /health on mount and every 30s so the indicator stays accurate if the
@@ -192,7 +198,14 @@ export function ImportScreen({ onSummarized, onFormRequested, selectedPatientId 
   const openBlankForm = () => {
     onFormRequested({
       form: {
-        header: { recipientName: '', date: '', time: '', recipientIdentifier: '', dob: '', location: '' },
+        header: {
+          recipientName: '',
+          date: '',
+          time: '',
+          recipientIdentifier: '',
+          dob: '',
+          location: '',
+        },
         careCoordinationType: { sih: false, hcbw: false },
         narrative: {
           recipientAndVisitObservations: '',
@@ -253,7 +266,7 @@ export function ImportScreen({ onSummarized, onFormRequested, selectedPatientId 
         className={`card file-drop-zone ${isDragging ? 'drag-over' : ''}`}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
-        onDrop={(e) => {
+        onDrop={e => {
           e.preventDefault();
           setIsDragging(false);
           const files = e.dataTransfer.files;
@@ -270,7 +283,7 @@ export function ImportScreen({ onSummarized, onFormRequested, selectedPatientId 
           type="file"
           id="file-input"
           accept=".pdf,image/*"
-          onChange={(e) => e.target.files?.[0] && processFile(e.target.files[0])}
+          onChange={e => e.target.files?.[0] && processFile(e.target.files[0])}
           style={{ display: 'none' }}
           disabled={isProcessing}
         />
@@ -316,7 +329,15 @@ export function ImportScreen({ onSummarized, onFormRequested, selectedPatientId 
       {/* Error */}
       {error && (
         <div className="card" style={{ background: '#fef2f2', borderColor: '#fecaca' }}>
-          <p style={{ color: '#dc2626', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <p
+            style={{
+              color: '#dc2626',
+              margin: 0,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+            }}
+          >
             <Icon name="warning" size={18} color="#dc2626" />
             {error}
           </p>
@@ -353,10 +374,15 @@ function TextInputForm({
   const [text, setText] = useState('');
 
   return (
-    <form onSubmit={(e) => { e.preventDefault(); onSubmit(text); }}>
+    <form
+      onSubmit={e => {
+        e.preventDefault();
+        onSubmit(text);
+      }}
+    >
       <textarea
         value={text}
-        onChange={(e) => setText(e.target.value)}
+        onChange={e => setText(e.target.value)}
         placeholder="Paste caregiver notes here..."
         rows={8}
         disabled={disabled}

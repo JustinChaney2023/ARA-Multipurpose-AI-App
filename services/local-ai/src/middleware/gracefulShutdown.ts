@@ -67,9 +67,12 @@ class GracefulShutdownManager {
       const remaining = this.options.timeoutMs - elapsed;
 
       if (remaining <= 0) {
-        logger.warn(`Shutdown timeout reached. ${this.activeRequests.size} requests forcefully terminated`, {
-          requests: Array.from(this.activeRequests.values()).map(r => r.path)
-        });
+        logger.warn(
+          `Shutdown timeout reached. ${this.activeRequests.size} requests forcefully terminated`,
+          {
+            requests: Array.from(this.activeRequests.values()).map(r => r.path),
+          }
+        );
         break;
       }
 
@@ -77,7 +80,7 @@ class GracefulShutdownManager {
         requests: Array.from(this.activeRequests.values()).map(r => ({
           path: r.path,
           duration: `${Date.now() - r.startTime}ms`,
-        }))
+        })),
       });
 
       await sleep(Math.min(1000, remaining));
@@ -172,7 +175,7 @@ export function setupGracefulShutdown(
   process.on('SIGINT', () => shutdownHandler('SIGINT'));
 
   // Handle uncaught errors
-  process.on('uncaughtException', (error) => {
+  process.on('uncaughtException', error => {
     logger.error('Uncaught exception', { error });
     shutdownHandler('uncaughtException').catch(() => process.exit(1));
   });

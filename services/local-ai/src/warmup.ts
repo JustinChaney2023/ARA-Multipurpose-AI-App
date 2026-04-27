@@ -4,12 +4,7 @@
 
 import { config } from './config/index.js';
 import { logger } from './logger.js';
-import { 
-  DEFAULT_MODEL, 
-  OLLAMA_BASE_URL, 
-  WARMUP_PROMPT, 
-  getModelOptions 
-} from './modelConfig.js';
+import { DEFAULT_MODEL, OLLAMA_BASE_URL, WARMUP_PROMPT, getModelOptions } from './modelConfig.js';
 
 let isModelWarmedUp = false;
 let warmupPromise: Promise<void> | null = null;
@@ -70,7 +65,6 @@ async function performWarmup(): Promise<void> {
     const duration = Date.now() - startTime;
     logger.info(`[WARMUP] Model warmed up successfully in ${duration}ms`);
     isModelWarmedUp = true;
-
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logger.error('[WARMUP] Model warmup failed:', { error: errorMessage });
@@ -95,12 +89,12 @@ export function setModelBusy(busy: boolean): void {
 export function startKeepAlive(intervalMs?: number): () => void {
   const actualInterval = intervalMs || config.warmup.keepAliveInterval;
   logger.info(`[KEEPALIVE] Starting keep-alive pings every ${actualInterval}ms`);
-  
+
   const interval = setInterval(async () => {
     if (!isModelWarmedUp) {
       return;
     }
-    
+
     if (isModelBusy) {
       logger.debug('[KEEPALIVE] Skipping ping - model is busy');
       return;
@@ -142,9 +136,9 @@ export function triggerBackgroundWarmup(): void {
   if (!config.warmup.enabled) {
     return;
   }
-  
+
   logger.info('[WARMUP] Triggering background warmup...');
-  
+
   setTimeout(() => {
     warmupModel().catch(() => {
       // Error already logged in performWarmup

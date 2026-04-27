@@ -1,10 +1,12 @@
 # CPU-Only Optimization Guide
 
-If you're running without a GPU (Intel/AMD graphics on Windows, or no dedicated GPU), this guide will help you get the best performance.
+If you're running without a GPU (Intel/AMD graphics on Windows, or no dedicated
+GPU), this guide will help you get the best performance.
 
 ## Quick Fix
 
-**Use `phi3:mini` model** - it's optimized for CPU and gives the best speed/quality balance.
+**Use `phi3:mini` model** - it's optimized for CPU and gives the best
+speed/quality balance.
 
 ```powershell
 # 1. Pull the model
@@ -31,12 +33,12 @@ ollama serve
 
 Typical results on CPU-only laptops:
 
-| Model | Speed | Quality | Best For |
-|-------|-------|---------|----------|
-| phi3:mini | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | General use (RECOMMENDED) |
-| qwen2.5:1.5b | ⭐⭐⭐⭐ | ⭐⭐⭐ | Speed priority |
-| qwen2.5:0.5b | ⭐⭐⭐⭐⭐ | ⭐⭐ | Very slow hardware |
-| qwen3:4b | ⭐⭐ | ⭐⭐⭐⭐⭐ | Quality priority (slow) |
+| Model        | Speed      | Quality    | Best For                  |
+| ------------ | ---------- | ---------- | ------------------------- |
+| phi3:mini    | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐   | General use (RECOMMENDED) |
+| qwen2.5:1.5b | ⭐⭐⭐⭐   | ⭐⭐⭐     | Speed priority            |
+| qwen2.5:0.5b | ⭐⭐⭐⭐⭐ | ⭐⭐       | Very slow hardware        |
+| qwen3:4b     | ⭐⭐       | ⭐⭐⭐⭐⭐ | Quality priority (slow)   |
 
 ## Environment Variables for CPU
 
@@ -68,7 +70,8 @@ If AI is still too slow, disable it entirely:
 DISABLE_LLM=true
 ```
 
-The app will work fine with rule-based extraction (OCR only). You'll just need to fill in more fields manually.
+The app will work fine with rule-based extraction (OCR only). You'll just need
+to fill in more fields manually.
 
 ## Ollama vs llama.cpp
 
@@ -76,37 +79,43 @@ The app will work fine with rule-based extraction (OCR only). You'll just need t
 
 Probably not worth it. Here's why:
 
-| Feature | Ollama | llama.cpp |
-|---------|--------|-----------|
-| Setup | Easy | Complex |
-| Performance | Good | Slightly better (~10%) |
-| Model mgmt | Built-in | Manual |
-| API | REST | Need to add server |
-| Your project | ✅ Supported | ❌ Needs rewrite |
+| Feature      | Ollama       | llama.cpp              |
+| ------------ | ------------ | ---------------------- |
+| Setup        | Easy         | Complex                |
+| Performance  | Good         | Slightly better (~10%) |
+| Model mgmt   | Built-in     | Manual                 |
+| API          | REST         | Need to add server     |
+| Your project | ✅ Supported | ❌ Needs rewrite       |
 
-Ollama is essentially a user-friendly wrapper around llama.cpp. The core performance is the same.
+Ollama is essentially a user-friendly wrapper around llama.cpp. The core
+performance is the same.
 
 ## Windows-Specific Notes
 
 On Windows, Ollama only supports **NVIDIA GPUs**. If you have:
+
 - Intel Iris Xe / UHD Graphics → CPU only
-- AMD Radeon → CPU only  
+- AMD Radeon → CPU only
 - NVIDIA GTX/RTX → GPU acceleration ✓
 
 ## macOS / Linux
 
 On macOS and Linux, you have more options:
-- **macOS**: Metal acceleration works with Apple Silicon (M1/M2/M3) and Intel Macs
+
+- **macOS**: Metal acceleration works with Apple Silicon (M1/M2/M3) and Intel
+  Macs
 - **Linux**: ROCm supports AMD GPUs, CUDA for NVIDIA
 
 ## Troubleshooting Slow Performance
 
 1. **Check CPU usage** - Is your CPU maxed out during inference?
+
    ```powershell
    Get-Process ollama | Select-Object CPU
    ```
 
 2. **Check RAM** - Are you swapping to disk?
+
    ```powershell
    Get-CimInstance Win32_OperatingSystem | Select-Object FreePhysicalMemory,TotalVisibleMemorySize
    ```

@@ -57,8 +57,8 @@ const rateLimitStore = new RateLimitStore();
 // ============================================================================
 
 export interface RateLimitConfig {
-  windowMs: number;      // Time window in milliseconds
-  maxRequests: number;   // Max requests per window
+  windowMs: number; // Time window in milliseconds
+  maxRequests: number; // Max requests per window
   keyGenerator?: (req: Request) => string;
   skipSuccessfulRequests?: boolean;
   handler?: (req: Request, res: Response) => void;
@@ -68,8 +68,8 @@ export interface RateLimitConfig {
 export const RATE_LIMITS = {
   // Strict limits for expensive operations
   extraction: {
-    windowMs: 60 * 1000,      // 1 minute
-    maxRequests: 5,           // 5 requests per minute
+    windowMs: 60 * 1000, // 1 minute
+    maxRequests: 5, // 5 requests per minute
   },
   // Moderate limits for PDF export
   export: {
@@ -108,12 +108,7 @@ function ipKeyGenerator(req: Request): string {
 // ============================================================================
 
 export function rateLimit(config: RateLimitConfig) {
-  const {
-    windowMs,
-    maxRequests,
-    keyGenerator = defaultKeyGenerator,
-    handler,
-  } = config;
+  const { windowMs, maxRequests, keyGenerator = defaultKeyGenerator, handler } = config;
 
   return (req: Request, res: Response, next: NextFunction): void => {
     const key = keyGenerator(req);
@@ -199,14 +194,17 @@ export const defaultRateLimit = rateLimit(RATE_LIMITS.default);
 // ============================================================================
 
 interface BurstConfig {
-  burstLimit: number;      // Max requests in burst window
-  burstWindowMs: number;   // Burst window (shorter than main window)
-  cooldownMs: number;      // Cooldown after burst exceeded
+  burstLimit: number; // Max requests in burst window
+  burstWindowMs: number; // Burst window (shorter than main window)
+  cooldownMs: number; // Cooldown after burst exceeded
 }
 
 export function burstProtection(config: BurstConfig) {
   const { burstLimit, burstWindowMs, cooldownMs } = config;
-  const burstStore = new Map<string, { count: number; resetTime: number; cooldownUntil?: number }>();
+  const burstStore = new Map<
+    string,
+    { count: number; resetTime: number; cooldownUntil?: number }
+  >();
 
   return (req: Request, res: Response, next: NextFunction): void => {
     const key = `burst:${req.ip || 'unknown'}`;
@@ -269,15 +267,15 @@ export function burstProtection(config: BurstConfig) {
 // ============================================================================
 
 enum CircuitState {
-  CLOSED = 'CLOSED',     // Normal operation
-  OPEN = 'OPEN',         // Failing, reject requests
+  CLOSED = 'CLOSED', // Normal operation
+  OPEN = 'OPEN', // Failing, reject requests
   HALF_OPEN = 'HALF_OPEN', // Testing if recovered
 }
 
 interface CircuitBreakerConfig {
-  failureThreshold: number;    // Failures before opening
-  successThreshold: number;    // Successes needed to close
-  timeoutMs: number;           // Time before half-open
+  failureThreshold: number; // Failures before opening
+  successThreshold: number; // Successes needed to close
+  timeoutMs: number; // Time before half-open
 }
 
 class CircuitBreaker {

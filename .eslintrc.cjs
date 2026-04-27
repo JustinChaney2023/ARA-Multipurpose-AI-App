@@ -30,7 +30,10 @@ module.exports = {
   ],
   rules: {
     // TypeScript specific
-    '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' }],
+    '@typescript-eslint/no-unused-vars': [
+      'error',
+      { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' },
+    ],
     '@typescript-eslint/explicit-function-return-type': 'off',
     '@typescript-eslint/explicit-module-boundary-types': 'off',
     '@typescript-eslint/no-explicit-any': 'warn',
@@ -67,11 +70,14 @@ module.exports = {
     'prefer-const': 'warn',
 
     // Import organization
-    'import/order': ['error', {
-      groups: ['builtin', 'external', 'internal', 'parent', 'sibling', 'index'],
-      'newlines-between': 'always',
-      alphabetize: { order: 'asc', caseInsensitive: true },
-    }],
+    'import/order': [
+      'error',
+      {
+        groups: ['builtin', 'external', 'internal', 'parent', 'sibling', 'index'],
+        'newlines-between': 'always',
+        alphabetize: { order: 'asc', caseInsensitive: true },
+      },
+    ],
     'import/no-duplicates': 'error',
     'import/no-unresolved': 'off', // TypeScript handles this
   },
@@ -79,10 +85,7 @@ module.exports = {
     // Frontend React files
     {
       files: ['apps/desktop/src/**/*.{ts,tsx}'],
-      extends: [
-        'plugin:react-hooks/recommended',
-        'plugin:react/recommended',
-      ],
+      extends: ['plugin:react-hooks/recommended', 'plugin:react/recommended'],
       settings: {
         react: {
           version: 'detect',
@@ -115,4 +118,3 @@ module.exports = {
     },
   ],
 };
-

@@ -21,7 +21,10 @@ export async function copyToClipboard(text: string): Promise<boolean> {
 }
 
 export function getWordCount(text: string): number {
-  return text.trim().split(/\s+/).filter(w => w.length > 0).length;
+  return text
+    .trim()
+    .split(/\s+/)
+    .filter(w => w.length > 0).length;
 }
 
 export function getCharCount(text: string): number {

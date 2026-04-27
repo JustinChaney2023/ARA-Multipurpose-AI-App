@@ -23,7 +23,7 @@ export type JSONParseResult<T> = JSONParseSuccess<T> | JSONParseFailure;
  */
 export function parseLLMJSON<T>(rawOutput: string): JSONParseResult<T> {
   const trimmed = rawOutput.trim();
-  
+
   // Strategy 1: Direct parse
   try {
     const data = JSON.parse(trimmed) as T;
@@ -31,7 +31,7 @@ export function parseLLMJSON<T>(rawOutput: string): JSONParseResult<T> {
   } catch {
     logger.debug('Direct JSON parse failed, trying code block extraction');
   }
-  
+
   // Strategy 2: Extract from markdown code block
   const codeBlockMatch = trimmed.match(/```(?:json)?\n?([\s\S]*?)\n?```/);
   if (codeBlockMatch) {
@@ -42,7 +42,7 @@ export function parseLLMJSON<T>(rawOutput: string): JSONParseResult<T> {
       logger.debug('Code block JSON parse failed, trying bracket extraction');
     }
   }
-  
+
   // Strategy 3: Find JSON object between curly braces
   const jsonMatch = trimmed.match(/\{[\s\S]*\}/);
   if (jsonMatch) {
@@ -53,12 +53,12 @@ export function parseLLMJSON<T>(rawOutput: string): JSONParseResult<T> {
       logger.debug('Bracket extraction JSON parse failed');
     }
   }
-  
+
   // All strategies failed
   return {
     success: false,
     error: 'Could not parse JSON from LLM output',
-    rawOutput: trimmed.substring(0, 2000) // Limit raw output length
+    rawOutput: trimmed.substring(0, 2000), // Limit raw output length
   };
 }
 
@@ -103,14 +103,16 @@ export function isPlaceholder(value: unknown): boolean {
  */
 export function cleanPlaceholders<T extends Record<string, unknown>>(obj: T): T {
   const result = { ...obj };
-  
+
   for (const [key, value] of Object.entries(result)) {
     if (isPlaceholder(value)) {
       (result as Record<string, unknown>)[key] = '';
     } else if (typeof value === 'object' && value !== null) {
-      (result as Record<string, unknown>)[key] = cleanPlaceholders(value as Record<string, unknown>);
+      (result as Record<string, unknown>)[key] = cleanPlaceholders(
+        value as Record<string, unknown>
+      );
     }
   }
-  
+
   return result;
 }

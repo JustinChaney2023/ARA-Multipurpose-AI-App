@@ -10,8 +10,18 @@ export interface DateTimeParseResult {
 }
 
 const MONTH_NAMES = [
-  'january', 'february', 'march', 'april', 'may', 'june',
-  'july', 'august', 'september', 'october', 'november', 'december'
+  'january',
+  'february',
+  'march',
+  'april',
+  'may',
+  'june',
+  'july',
+  'august',
+  'september',
+  'october',
+  'november',
+  'december',
 ];
 
 /**
@@ -56,16 +66,16 @@ export function normalizeDate(value: string): string {
     const [, year, month, day] = isoMatch;
     let monthNum = parseInt(month, 10);
     let dayNum = parseInt(day, 10);
-    
+
     // Auto-correct
     if (monthNum === 0) monthNum = 1;
     if (monthNum > 12) monthNum = 12;
     if (dayNum === 0) dayNum = 1;
     if (dayNum > 31) dayNum = 31;
-    
+
     const daysInMonth = new Date(parseInt(year), monthNum, 0).getDate();
     if (dayNum > daysInMonth) dayNum = daysInMonth;
-    
+
     return `${String(monthNum).padStart(2, '0')}/${String(dayNum).padStart(2, '0')}/${year}`;
   }
 
@@ -75,20 +85,20 @@ export function normalizeDate(value: string): string {
     const [, first, second, year] = euroMatch;
     const firstNum = parseInt(first, 10);
     const secondNum = parseInt(second, 10);
-    
+
     // If first number > 12, it's likely day (European format)
     if (firstNum > 12) {
       let dayNum = firstNum;
       let monthNum = secondNum;
-      
+
       if (monthNum === 0) monthNum = 1;
       if (monthNum > 12) monthNum = 12;
       if (dayNum === 0) dayNum = 1;
       if (dayNum > 31) dayNum = 31;
-      
+
       const daysInMonth = new Date(parseInt(year), monthNum, 0).getDate();
       if (dayNum > daysInMonth) dayNum = daysInMonth;
-      
+
       return `${String(monthNum).padStart(2, '0')}/${String(dayNum).padStart(2, '0')}/${year}`;
     }
   }
@@ -139,23 +149,23 @@ export function normalizeDate(value: string): string {
     let month = parseInt(digits.slice(0, 2), 10);
     let day = parseInt(digits.slice(2, 4), 10);
     const year = digits.slice(4);
-    
+
     // If month > 12, assume DDMMYYYY
     if (month > 12) {
       const temp = month;
       month = day;
       day = temp;
     }
-    
+
     // Fix invalid values
     if (month === 0) month = 1;
     if (month > 12) month = 12;
     if (day === 0) day = 1;
     if (day > 31) day = 31;
-    
+
     const daysInMonth = new Date(parseInt(year), month, 0).getDate();
     if (day > daysInMonth) day = daysInMonth;
-    
+
     return `${String(month).padStart(2, '0')}/${String(day).padStart(2, '0')}/${year}`;
   }
 

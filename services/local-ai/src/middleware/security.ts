@@ -41,7 +41,8 @@ export function securityHeaders(req: Request, res: Response, next: NextFunction)
   res.setHeader('Content-Security-Policy', csp);
 
   // Permissions Policy
-  res.setHeader('Permissions-Policy', 
+  res.setHeader(
+    'Permissions-Policy',
     'accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()'
   );
 
@@ -164,7 +165,7 @@ export function ipFilter(config: IPFilterConfig) {
 // ============================================================================
 
 export function requestId(req: Request, res: Response, next: NextFunction): void {
-  const requestId = 
+  const requestId =
     (req.headers['x-request-id'] as string) ||
     `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 

@@ -66,12 +66,12 @@ export async function isMultimodalModel(): Promise<boolean> {
  * Supports both text-only and multimodal (vision) models
  */
 export async function generateFormWithLLM(text: string, imagePath?: string): Promise<string> {
-  const isMultimodal = imagePath && await isMultimodalModel();
-  
+  const isMultimodal = imagePath && (await isMultimodalModel());
+
   if (isMultimodal && imagePath) {
     return generateWithVision(imagePath, text);
   }
-  
+
   return generateWithText(text);
 }
 
@@ -91,19 +91,22 @@ ${text.substring(0, 5000)}
 """
 
 JSON OUTPUT:`;
-  
+
   const client = getOllamaClient();
-  
+
   try {
-    const result = await client.generate({
-      model: config.ollama.model,
-      system: systemPrompt,
-      prompt: userPrompt,
-      stream: false,
-      options: getModelOptions(false),
-    }, {
-      timeout: config.ollama.timeout,
-    });
+    const result = await client.generate(
+      {
+        model: config.ollama.model,
+        system: systemPrompt,
+        prompt: userPrompt,
+        stream: false,
+        options: getModelOptions(false),
+      },
+      {
+        timeout: config.ollama.timeout,
+      }
+    );
 
     return result.response;
   } catch (error) {
@@ -141,15 +144,18 @@ JSON OUTPUT:`;
   const client = getOllamaClient();
 
   try {
-    const result = await client.generate({
-      model: config.ollama.model,
-      prompt,
-      images: [base64Image],
-      stream: false,
-      options: getModelOptions(true),
-    }, {
-      timeout: config.ollama.visionTimeout,
-    });
+    const result = await client.generate(
+      {
+        model: config.ollama.model,
+        prompt,
+        images: [base64Image],
+        stream: false,
+        options: getModelOptions(true),
+      },
+      {
+        timeout: config.ollama.visionTimeout,
+      }
+    );
 
     return result.response;
   } catch (error) {
@@ -166,16 +172,16 @@ export async function generateWithStreaming(
   onChunk: (chunk: string) => void,
   imagePath?: string
 ): Promise<string> {
-  const isMultimodal = imagePath && await isMultimodalModel();
+  const isMultimodal = imagePath && (await isMultimodalModel());
   const client = getOllamaClient();
-  
+
   let request;
   let timeout = config.ollama.timeout;
-  
+
   if (isMultimodal && imagePath) {
     const imageBuffer = await fs.readFile(imagePath);
     const base64Image = imageBuffer.toString('base64');
-    
+
     request = {
       model: config.ollama.model,
       prompt: buildSimplifiedVisionPrompt(text),
@@ -190,13 +196,13 @@ export async function generateWithStreaming(
       options: getModelOptions(false),
     };
   }
-  
+
   const result = await client.generate(request, {
     stream: true,
     onStream: onChunk,
     timeout,
   });
-  
+
   return result.response;
 }
 
@@ -211,7 +217,10 @@ Return ONLY valid JSON.`;
  */
 function buildSimplifiedPrompt(text: string): string {
   if (text.length > 4000) {
-    logger.debug('Text truncated for simplified prompt', { original: text.length, truncated: 4000 });
+    logger.debug('Text truncated for simplified prompt', {
+      original: text.length,
+      truncated: 4000,
+    });
   }
   return `Extract form data from caregiver notes into JSON.
 
@@ -227,9 +236,10 @@ JSON OUTPUT ONLY:`;
  * Build simplified prompt for vision model
  */
 function buildSimplifiedVisionPrompt(ocrText?: string): string {
-  const ocrHint = ocrText && ocrText.length > 10
-    ? `\nOCR hint (may be inaccurate): ${ocrText.substring(0, 500)}`
-    : '';
+  const ocrHint =
+    ocrText && ocrText.length > 10
+      ? `\nOCR hint (may be inaccurate): ${ocrText.substring(0, 500)}`
+      : '';
 
   return `Look at this handwritten form image and extract data into JSON.${ocrHint}
 
@@ -248,11 +258,11 @@ export async function listModels(): Promise<string[]> {
       headers: { 'Content-Type': 'application/json' },
       signal: AbortSignal.timeout(5000),
     });
-    
+
     if (!response.ok) {
       return [];
     }
-    
+
     const data = await response.json();
     return data.models?.map((m: { name: string }) => m.name) || [];
   } catch {

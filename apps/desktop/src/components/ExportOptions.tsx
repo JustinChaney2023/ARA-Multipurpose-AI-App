@@ -20,7 +20,7 @@ export function ExportOptions({ form, rawText, onExportPDF }: ExportOptionsProps
       form,
       rawText,
     };
-    
+
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -43,13 +43,13 @@ export function ExportOptions({ form, rawText, onExportPDF }: ExportOptionsProps
             <Icon name="document" size={16} /> Export PDF
           </button>
         </Tooltip>
-        
+
         <Tooltip content="Print-friendly version">
           <button className="btn btn-secondary" onClick={handlePrint}>
             <Icon name="print" size={16} /> Print
           </button>
         </Tooltip>
-        
+
         <Tooltip content="Backup as JSON file">
           <button className="btn btn-secondary" onClick={exportToJSON}>
             <Icon name="save" size={16} /> JSON Backup
@@ -85,29 +85,46 @@ function PrintableForm({ form }: { form: ExtractionResult['form'] }) {
       <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '1.5rem' }}>
         <tbody>
           <tr>
-            <td style={{ padding: '0.5rem', border: '1px solid #ccc', fontWeight: 'bold', width: '30%' }}>
+            <td
+              style={{
+                padding: '0.5rem',
+                border: '1px solid #ccc',
+                fontWeight: 'bold',
+                width: '30%',
+              }}
+            >
               Recipient Name
             </td>
-            <td style={{ padding: '0.5rem', border: '1px solid #ccc' }}>{form.header.recipientName}</td>
+            <td style={{ padding: '0.5rem', border: '1px solid #ccc' }}>
+              {form.header.recipientName}
+            </td>
           </tr>
           <tr>
-            <td style={{ padding: '0.5rem', border: '1px solid #ccc', fontWeight: 'bold' }}>Date</td>
+            <td style={{ padding: '0.5rem', border: '1px solid #ccc', fontWeight: 'bold' }}>
+              Date
+            </td>
             <td style={{ padding: '0.5rem', border: '1px solid #ccc' }}>{form.header.date}</td>
           </tr>
           <tr>
-            <td style={{ padding: '0.5rem', border: '1px solid #ccc', fontWeight: 'bold' }}>Time</td>
+            <td style={{ padding: '0.5rem', border: '1px solid #ccc', fontWeight: 'bold' }}>
+              Time
+            </td>
             <td style={{ padding: '0.5rem', border: '1px solid #ccc' }}>{form.header.time}</td>
           </tr>
           <tr>
             <td style={{ padding: '0.5rem', border: '1px solid #ccc', fontWeight: 'bold' }}>ID</td>
-            <td style={{ padding: '0.5rem', border: '1px solid #ccc' }}>{form.header.recipientIdentifier}</td>
+            <td style={{ padding: '0.5rem', border: '1px solid #ccc' }}>
+              {form.header.recipientIdentifier}
+            </td>
           </tr>
           <tr>
             <td style={{ padding: '0.5rem', border: '1px solid #ccc', fontWeight: 'bold' }}>DOB</td>
             <td style={{ padding: '0.5rem', border: '1px solid #ccc' }}>{form.header.dob}</td>
           </tr>
           <tr>
-            <td style={{ padding: '0.5rem', border: '1px solid #ccc', fontWeight: 'bold' }}>Location</td>
+            <td style={{ padding: '0.5rem', border: '1px solid #ccc', fontWeight: 'bold' }}>
+              Location
+            </td>
             <td style={{ padding: '0.5rem', border: '1px solid #ccc' }}>{form.header.location}</td>
           </tr>
         </tbody>
@@ -115,35 +132,51 @@ function PrintableForm({ form }: { form: ExtractionResult['form'] }) {
 
       <div style={{ marginBottom: '1rem' }}>
         <strong>Care Coordination Type:</strong>{' '}
-        {form.careCoordinationType.sih && <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}><Icon name="check" size={14} /> Senior In-Home </span>}
-        {form.careCoordinationType.hcbw && <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}><Icon name="check" size={14} /> Home & Community-Based Waiver</span>}
+        {form.careCoordinationType.sih && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+            <Icon name="check" size={14} /> Senior In-Home{' '}
+          </span>
+        )}
+        {form.careCoordinationType.hcbw && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+            <Icon name="check" size={14} /> Home & Community-Based Waiver
+          </span>
+        )}
       </div>
 
       {Object.entries(form.narrative).map(([key, value]) => (
         <div key={key} style={{ marginBottom: '1rem', pageBreakInside: 'avoid' }}>
-          <h3 style={{ 
-            background: '#f0f0f0', 
-            padding: '0.5rem', 
-            margin: '0 0 0.5rem',
-            fontSize: '0.9rem',
-            textTransform: 'capitalize',
-          }}>
+          <h3
+            style={{
+              background: '#f0f0f0',
+              padding: '0.5rem',
+              margin: '0 0 0.5rem',
+              fontSize: '0.9rem',
+              textTransform: 'capitalize',
+            }}
+          >
             {key.replace(/([A-Z])/g, ' $1').trim()}
           </h3>
-          <div style={{ 
-            padding: '0.5rem', 
-            border: '1px solid #ccc', 
-            minHeight: '60px',
-            whiteSpace: 'pre-wrap',
-          }}>
+          <div
+            style={{
+              padding: '0.5rem',
+              border: '1px solid #ccc',
+              minHeight: '60px',
+              whiteSpace: 'pre-wrap',
+            }}
+          >
             {value || '(No content)'}
           </div>
         </div>
       ))}
 
       <div style={{ marginTop: '2rem', borderTop: '2px solid #333', paddingTop: '1rem' }}>
-        <p><strong>Care Coordinator:</strong> {form.signature.careCoordinatorName}</p>
-        <p><strong>Date Signed:</strong> {form.signature.dateSigned}</p>
+        <p>
+          <strong>Care Coordinator:</strong> {form.signature.careCoordinatorName}
+        </p>
+        <p>
+          <strong>Date Signed:</strong> {form.signature.dateSigned}
+        </p>
       </div>
     </div>
   );

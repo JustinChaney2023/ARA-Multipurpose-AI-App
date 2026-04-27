@@ -39,13 +39,16 @@ export function runMigrations(): void {
   `);
 
   const applied = new Set(
-    db.prepare('SELECT name FROM schema_migrations').all().map((r: unknown) => (r as { name: string }).name)
+    db
+      .prepare('SELECT name FROM schema_migrations')
+      .all()
+      .map((r: unknown) => (r as { name: string }).name)
   );
 
   // Sort lexically so 001_ runs before 002_ regardless of filesystem order.
   const files = fs
     .readdirSync(MIGRATIONS_DIR)
-    .filter((f) => f.endsWith('.sql'))
+    .filter(f => f.endsWith('.sql'))
     .sort();
 
   let appliedCount = 0;

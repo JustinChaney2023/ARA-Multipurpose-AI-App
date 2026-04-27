@@ -88,7 +88,17 @@ export const ExtractionResultSchema = z.object({
   form: MonthlyCareCoordinationFormSchema,
   confidence: z.array(FieldConfidenceSchema),
   rawText: z.string(),
-  extractionMethod: z.enum(['ocr-only', 'llm-structured', 'llm-categorized', 'vision-llm', 'qa-llm', 'narrative-qa', 'manual']).default('ocr-only'),
+  extractionMethod: z
+    .enum([
+      'ocr-only',
+      'llm-structured',
+      'llm-categorized',
+      'vision-llm',
+      'qa-llm',
+      'narrative-qa',
+      'manual',
+    ])
+    .default('ocr-only'),
   ollamaAvailable: z.boolean().default(false),
   // NEW: OCR preview shown to user before form fill
   ocrPreview: z.string().optional(),
@@ -136,7 +146,9 @@ export function validateForm(data: unknown): MonthlyCareCoordinationForm {
 }
 
 // Safe parse form data
-export function safeValidateForm(data: unknown): { success: true; data: MonthlyCareCoordinationForm } | { success: false; error: z.ZodError } {
+export function safeValidateForm(
+  data: unknown
+): { success: true; data: MonthlyCareCoordinationForm } | { success: false; error: z.ZodError } {
   const result = MonthlyCareCoordinationFormSchema.safeParse(data);
   if (result.success) {
     return { success: true, data: result.data };
@@ -145,7 +157,7 @@ export function safeValidateForm(data: unknown): { success: true; data: MonthlyC
 }
 
 // Field metadata for UI
-export type FieldPath = 
+export type FieldPath =
   | `header.${keyof FormHeader}`
   | `careCoordinationType.${keyof CareCoordinationType}`
   | `narrative.${keyof NarrativeSections}`
@@ -163,70 +175,148 @@ export interface FieldMetadata {
 // All fields metadata
 export const FORM_FIELDS: FieldMetadata[] = [
   // Header
-  { path: 'header.recipientName', label: 'Recipient Name', type: 'text', required: false, section: 'Header', placeholder: 'Enter recipient name' },
-  { path: 'header.date', label: 'Date', type: 'text', required: false, section: 'Header', placeholder: 'MM/DD/YYYY' },
-  { path: 'header.time', label: 'Time', type: 'text', required: false, section: 'Header', placeholder: 'HH:MM' },
-  { path: 'header.recipientIdentifier', label: 'Recipient Identifier', type: 'text', required: false, section: 'Header', placeholder: 'ID number' },
-  { path: 'header.dob', label: 'Date of Birth', type: 'text', required: false, section: 'Header', placeholder: 'MM/DD/YYYY' },
-  { path: 'header.location', label: 'Location', type: 'text', required: false, section: 'Header', placeholder: 'Visit location' },
-  
-  // Care Coordination Type
-  { path: 'careCoordinationType.sih', label: 'SIH', type: 'checkbox', required: false, section: 'Care Coordination Type' },
-  { path: 'careCoordinationType.hcbw', label: 'HCBW', type: 'checkbox', required: false, section: 'Care Coordination Type' },
-  
-  // Narrative sections
-  { 
-    path: 'narrative.recipientAndVisitObservations', 
-    label: 'Recipient & Visit Observations', 
-    type: 'textarea', 
-    required: false, 
-    section: 'Observations',
-    placeholder: 'What are they doing, communicating, any concerns regarding home/site status, misc. information, etc.'
+  {
+    path: 'header.recipientName',
+    label: 'Recipient Name',
+    type: 'text',
+    required: false,
+    section: 'Header',
+    placeholder: 'Enter recipient name',
   },
-  { 
-    path: 'narrative.healthEmotionalStatus', 
-    label: 'Health/Emotional Status, Med Changes, Doctor Visits, Behavior Changes, Critical Incidents, Falls, Hospital/Urgent Care Visits', 
-    type: 'textarea', 
-    required: false, 
-    section: 'Health',
-    placeholder: 'Describe health status, medication changes, doctor visits, behaviors, incidents, falls, hospital visits...'
+  {
+    path: 'header.date',
+    label: 'Date',
+    type: 'text',
+    required: false,
+    section: 'Header',
+    placeholder: 'MM/DD/YYYY',
   },
-  { 
-    path: 'narrative.reviewOfServices', 
-    label: 'Review of Services', 
-    type: 'textarea', 
-    required: false, 
-    section: 'Services',
-    placeholder: 'Review current services being provided'
+  {
+    path: 'header.time',
+    label: 'Time',
+    type: 'text',
+    required: false,
+    section: 'Header',
+    placeholder: 'HH:MM',
   },
-  { 
-    path: 'narrative.progressTowardGoals', 
-    label: 'Progress Toward Goals', 
-    type: 'textarea', 
-    required: false, 
-    section: 'Goals',
-    placeholder: 'How is the recipient doing on their goals? Are current goals supporting the recipient? Any changes needed?'
+  {
+    path: 'header.recipientIdentifier',
+    label: 'Recipient Identifier',
+    type: 'text',
+    required: false,
+    section: 'Header',
+    placeholder: 'ID number',
   },
-  { 
-    path: 'narrative.additionalNotes', 
-    label: 'Additional Notes', 
-    type: 'textarea', 
-    required: false, 
-    section: 'Notes',
-    placeholder: 'Any additional information'
+  {
+    path: 'header.dob',
+    label: 'Date of Birth',
+    type: 'text',
+    required: false,
+    section: 'Header',
+    placeholder: 'MM/DD/YYYY',
   },
-  { 
-    path: 'narrative.followUpTasks', 
-    label: 'Care Coordinator Follow Up Tasks', 
-    type: 'textarea', 
-    required: false, 
-    section: 'Follow Up',
-    placeholder: 'List any follow-up tasks for the care coordinator'
+  {
+    path: 'header.location',
+    label: 'Location',
+    type: 'text',
+    required: false,
+    section: 'Header',
+    placeholder: 'Visit location',
   },
-  
-  // Signature
-  { path: 'signature.careCoordinatorName', label: 'Care Coordinator Name', type: 'text', required: false, section: 'Signature', placeholder: 'Your name' },
-  { path: 'signature.signature', label: 'Signature', type: 'text', required: false, section: 'Signature', placeholder: 'Type your signature' },
-  { path: 'signature.dateSigned', label: 'Date Signed', type: 'text', required: false, section: 'Signature', placeholder: 'MM/DD/YYYY' },
-];
 
+  // Care Coordination Type
+  {
+    path: 'careCoordinationType.sih',
+    label: 'SIH',
+    type: 'checkbox',
+    required: false,
+    section: 'Care Coordination Type',
+  },
+  {
+    path: 'careCoordinationType.hcbw',
+    label: 'HCBW',
+    type: 'checkbox',
+    required: false,
+    section: 'Care Coordination Type',
+  },
+
+  // Narrative sections
+  {
+    path: 'narrative.recipientAndVisitObservations',
+    label: 'Recipient & Visit Observations',
+    type: 'textarea',
+    required: false,
+    section: 'Observations',
+    placeholder:
+      'What are they doing, communicating, any concerns regarding home/site status, misc. information, etc.',
+  },
+  {
+    path: 'narrative.healthEmotionalStatus',
+    label:
+      'Health/Emotional Status, Med Changes, Doctor Visits, Behavior Changes, Critical Incidents, Falls, Hospital/Urgent Care Visits',
+    type: 'textarea',
+    required: false,
+    section: 'Health',
+    placeholder:
+      'Describe health status, medication changes, doctor visits, behaviors, incidents, falls, hospital visits...',
+  },
+  {
+    path: 'narrative.reviewOfServices',
+    label: 'Review of Services',
+    type: 'textarea',
+    required: false,
+    section: 'Services',
+    placeholder: 'Review current services being provided',
+  },
+  {
+    path: 'narrative.progressTowardGoals',
+    label: 'Progress Toward Goals',
+    type: 'textarea',
+    required: false,
+    section: 'Goals',
+    placeholder:
+      'How is the recipient doing on their goals? Are current goals supporting the recipient? Any changes needed?',
+  },
+  {
+    path: 'narrative.additionalNotes',
+    label: 'Additional Notes',
+    type: 'textarea',
+    required: false,
+    section: 'Notes',
+    placeholder: 'Any additional information',
+  },
+  {
+    path: 'narrative.followUpTasks',
+    label: 'Care Coordinator Follow Up Tasks',
+    type: 'textarea',
+    required: false,
+    section: 'Follow Up',
+    placeholder: 'List any follow-up tasks for the care coordinator',
+  },
+
+  // Signature
+  {
+    path: 'signature.careCoordinatorName',
+    label: 'Care Coordinator Name',
+    type: 'text',
+    required: false,
+    section: 'Signature',
+    placeholder: 'Your name',
+  },
+  {
+    path: 'signature.signature',
+    label: 'Signature',
+    type: 'text',
+    required: false,
+    section: 'Signature',
+    placeholder: 'Type your signature',
+  },
+  {
+    path: 'signature.dateSigned',
+    label: 'Date Signed',
+    type: 'text',
+    required: false,
+    section: 'Signature',
+    placeholder: 'MM/DD/YYYY',
+  },
+];

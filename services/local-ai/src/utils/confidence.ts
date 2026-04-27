@@ -12,7 +12,7 @@ import type { FieldConfidence, FieldPath, QAAnswer } from '@ara/shared';
 export function buildConfidenceFromAnswers(
   allFields: FieldPath[],
   answers: Record<string, QAAnswer>,
-  defaultSource = 'hybrid-fill',
+  defaultSource = 'hybrid-fill'
 ): FieldConfidence[] {
   return allFields.map(field => {
     const answer = answers[field];

@@ -67,7 +67,9 @@ export async function embedSession(sessionId: number, rawText: string): Promise<
     const msg = err instanceof Error ? err.message : String(err);
     if (msg.includes('not found') && !missingModelLogged) {
       missingModelLogged = true;
-      logger.warn('[RAG] Embedding model not available. RAG disabled. Run: ollama pull nomic-embed-text');
+      logger.warn(
+        '[RAG] Embedding model not available. RAG disabled. Run: ollama pull nomic-embed-text'
+      );
     } else if (!msg.includes('not found')) {
       logger.warn('[RAG] Failed to embed session', { sessionId, error: msg });
     }
@@ -89,7 +91,9 @@ export async function embedSummary(summaryId: number, body: string): Promise<voi
     const msg = err instanceof Error ? err.message : String(err);
     if (msg.includes('not found') && !missingModelLogged) {
       missingModelLogged = true;
-      logger.warn('[RAG] Embedding model not available. RAG disabled. Run: ollama pull nomic-embed-text');
+      logger.warn(
+        '[RAG] Embedding model not available. RAG disabled. Run: ollama pull nomic-embed-text'
+      );
     } else if (!msg.includes('not found')) {
       logger.warn('[RAG] Failed to embed summary', { summaryId, error: msg });
     }
@@ -201,9 +205,10 @@ export async function queryRagContext(
     snippets.push(preview);
   }
 
-  const context = snippets.length > 0
-    ? `Prior context about this patient from earlier visits:\n${snippets.map((s, i) => `[${i + 1}] ${s}`).join('\n\n')}\n\n`
-    : '';
+  const context =
+    snippets.length > 0
+      ? `Prior context about this patient from earlier visits:\n${snippets.map((s, i) => `[${i + 1}] ${s}`).join('\n\n')}\n\n`
+      : '';
 
   logger.info('[RAG] Context retrieved', { patientId, records: sources.length, k });
   return { context, sources };

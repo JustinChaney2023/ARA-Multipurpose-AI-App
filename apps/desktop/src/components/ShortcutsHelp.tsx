@@ -41,9 +41,16 @@ export function ShortcutsHelp({ isOpen, onClose }: ShortcutsHelpProps) {
           overflow: 'auto',
           animation: 'slideUp 0.2s ease-out',
         }}
-        onClick={(e) => e.stopPropagation()}
+        onClick={e => e.stopPropagation()}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '1rem',
+          }}
+        >
           <h2 style={{ fontSize: '1.25rem', fontWeight: 600, margin: 0 }}>Keyboard Shortcuts</h2>
           <button
             onClick={onClose}
@@ -88,8 +95,14 @@ export function ShortcutsHelp({ isOpen, onClose }: ShortcutsHelpProps) {
           </tbody>
         </table>
 
-        <p style={{ marginTop: '1rem', fontSize: '0.75rem', color: '#94a3b8', textAlign: 'center' }}>
-          Press <kbd style={{ background: '#f1f5f9', padding: '0.125rem 0.25rem', borderRadius: '3px' }}>?</kbd> anywhere to show this help
+        <p
+          style={{ marginTop: '1rem', fontSize: '0.75rem', color: '#94a3b8', textAlign: 'center' }}
+        >
+          Press{' '}
+          <kbd style={{ background: '#f1f5f9', padding: '0.125rem 0.25rem', borderRadius: '3px' }}>
+            ?
+          </kbd>{' '}
+          anywhere to show this help
         </p>
       </div>
     </div>

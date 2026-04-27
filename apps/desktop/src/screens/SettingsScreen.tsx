@@ -83,7 +83,7 @@ export function SettingsScreen({ onBack }: Props) {
   }, []);
 
   const selected = useMemo(
-    () => prompts?.find((p) => p.name === selectedName) ?? null,
+    () => prompts?.find(p => p.name === selectedName) ?? null,
     [prompts, selectedName]
   );
 
@@ -94,7 +94,7 @@ export function SettingsScreen({ onBack }: Props) {
       const ok = window.confirm('You have unsaved changes. Discard them?');
       if (!ok) return;
     }
-    const next = prompts?.find((p) => p.name === name);
+    const next = prompts?.find(p => p.name === name);
     if (!next) return;
     setSelectedName(name);
     setDraft(next.body);
@@ -115,7 +115,7 @@ export function SettingsScreen({ onBack }: Props) {
       });
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
       const updated: PromptRecord = await res.json();
-      setPrompts((prev) => prev?.map((p) => (p.name === updated.name ? updated : p)) ?? null);
+      setPrompts(prev => prev?.map(p => (p.name === updated.name ? updated : p)) ?? null);
       setDraft(updated.body);
       setStatusNote('Saved. Takes effect on the next summary.');
     } catch (err) {
@@ -139,7 +139,7 @@ export function SettingsScreen({ onBack }: Props) {
       });
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
       const updated: PromptRecord = await res.json();
-      setPrompts((prev) => prev?.map((p) => (p.name === updated.name ? updated : p)) ?? null);
+      setPrompts(prev => prev?.map(p => (p.name === updated.name ? updated : p)) ?? null);
       setDraft(updated.body);
       setStatusNote('Reset to default.');
     } catch (err) {
@@ -166,7 +166,10 @@ export function SettingsScreen({ onBack }: Props) {
       </div>
 
       {loadError && (
-        <div className="card" style={{ background: "#fef2f2", borderColor: "#fecaca", color: "#991b1b" }}>
+        <div
+          className="card"
+          style={{ background: '#fef2f2', borderColor: '#fecaca', color: '#991b1b' }}
+        >
           Could not load prompts: {loadError}. Make sure the local-ai service is running.
         </div>
       )}
@@ -175,7 +178,7 @@ export function SettingsScreen({ onBack }: Props) {
         <div className="settings-body" style={{ display: 'flex', gap: '1rem' }}>
           {/* Left rail: prompt picker. Thin list, selection highlights. */}
           <aside className="prompt-list" style={{ minWidth: 220 }}>
-            {prompts.map((p) => (
+            {prompts.map(p => (
               <button
                 key={p.name}
                 onClick={() => handleSelect(p.name)}
@@ -193,9 +196,7 @@ export function SettingsScreen({ onBack }: Props) {
                 }}
               >
                 <div style={{ fontFamily: 'monospace', fontSize: 13 }}>{p.name}</div>
-                {!p.isDefault && (
-                  <span style={{ fontSize: 11, color: '#0969da' }}>customized</span>
-                )}
+                {!p.isDefault && <span style={{ fontSize: 11, color: '#0969da' }}>customized</span>}
               </button>
             ))}
           </aside>
@@ -208,7 +209,7 @@ export function SettingsScreen({ onBack }: Props) {
               {placeholders.length > 0 && (
                 <div style={{ marginBottom: 8, fontSize: 13 }}>
                   <strong>Available variables:</strong>{' '}
-                  {placeholders.map((v) => (
+                  {placeholders.map(v => (
                     <code
                       key={v}
                       style={{
@@ -226,7 +227,7 @@ export function SettingsScreen({ onBack }: Props) {
 
               <textarea
                 value={draft}
-                onChange={(e) => setDraft(e.target.value)}
+                onChange={e => setDraft(e.target.value)}
                 spellCheck={false}
                 style={{
                   width: '100%',
@@ -241,7 +242,11 @@ export function SettingsScreen({ onBack }: Props) {
               />
 
               <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center' }}>
-                <button onClick={handleSave} disabled={!dirty || saving} className="btn btn-primary">
+                <button
+                  onClick={handleSave}
+                  disabled={!dirty || saving}
+                  className="btn btn-primary"
+                >
                   {saving ? 'Saving…' : 'Save'}
                 </button>
                 <button
@@ -265,7 +270,15 @@ export function SettingsScreen({ onBack }: Props) {
                 <div style={{ color: '#1a7f37', fontSize: 13, marginTop: 8 }}>{statusNote}</div>
               )}
               {saveError && (
-                <div className="card" style={{ marginTop: 8, background: "#fef2f2", borderColor: "#fecaca", color: "#991b1b" }}>
+                <div
+                  className="card"
+                  style={{
+                    marginTop: 8,
+                    background: '#fef2f2',
+                    borderColor: '#fecaca',
+                    color: '#991b1b',
+                  }}
+                >
                   {saveError}
                 </div>
               )}

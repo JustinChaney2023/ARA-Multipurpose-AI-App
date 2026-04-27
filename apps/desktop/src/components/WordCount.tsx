@@ -8,10 +8,13 @@ interface WordCountProps {
 }
 
 export function WordCount({ text, showChars = true }: WordCountProps) {
-  const stats = useMemo(() => ({
-    words: getWordCount(text),
-    chars: getCharCount(text),
-  }), [text]);
+  const stats = useMemo(
+    () => ({
+      words: getWordCount(text),
+      chars: getCharCount(text),
+    }),
+    [text]
+  );
 
   return (
     <span
@@ -34,10 +37,13 @@ interface TextStatsProps {
 }
 
 export function TextStats({ text, maxWords, maxChars }: TextStatsProps) {
-  const stats = useMemo(() => ({
-    words: getWordCount(text),
-    chars: getCharCount(text),
-  }), [text]);
+  const stats = useMemo(
+    () => ({
+      words: getWordCount(text),
+      chars: getCharCount(text),
+    }),
+    [text]
+  );
 
   const wordWarning = maxWords && stats.words > maxWords * 0.9;
   const charWarning = maxChars && stats.chars > maxChars * 0.9;

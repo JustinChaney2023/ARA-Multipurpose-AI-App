@@ -226,9 +226,7 @@ export function getFolder(id: number): Folder | null {
       GROUP BY f.id
       `
     )
-    .get(id) as
-    | { id: number; name: string; created_at: string; patient_count: number }
-    | undefined;
+    .get(id) as { id: number; name: string; created_at: string; patient_count: number } | undefined;
 
   if (!row) return null;
   return {
@@ -309,7 +307,9 @@ export function createSession(
 export function listSessionsForPatient(patientId: number): Session[] {
   const db = getDb();
   const rows = db
-    .prepare('SELECT id, patient_id, source, raw_text, created_at FROM sessions WHERE patient_id = ? ORDER BY created_at DESC')
+    .prepare(
+      'SELECT id, patient_id, source, raw_text, created_at FROM sessions WHERE patient_id = ? ORDER BY created_at DESC'
+    )
     .all(patientId) as Array<{
     id: number;
     patient_id: number;
@@ -480,12 +480,12 @@ export function listChatTurnsForPatient(patientId: number): ChatTurn[] {
       'SELECT id, patient_id, role, body, created_at FROM chat_turns WHERE patient_id = ? ORDER BY created_at ASC'
     )
     .all(patientId) as Array<{
-      id: number;
-      patient_id: number;
-      role: string;
-      body: string;
-      created_at: string;
-    }>;
+    id: number;
+    patient_id: number;
+    role: string;
+    body: string;
+    created_at: string;
+  }>;
 
   return rows.map(r => ({
     id: r.id,
@@ -565,6 +565,10 @@ export function importLegacyHistoryItems(
   });
 
   batch(items);
-  logger.info('[MIGRATE] Imported legacy history', { patientId, sessionsCreated, summariesCreated });
+  logger.info('[MIGRATE] Imported legacy history', {
+    patientId,
+    sessionsCreated,
+    summariesCreated,
+  });
   return { sessionsCreated, summariesCreated };
 }

@@ -66,7 +66,7 @@ export function ThemeToggle() {
               minWidth: '150px',
             }}
           >
-            {(['light', 'dark', 'system'] as Theme[]).map((t) => (
+            {(['light', 'dark', 'system'] as Theme[]).map(t => (
               <button
                 key={t}
                 onClick={() => handleThemeChange(t)}
@@ -84,7 +84,9 @@ export function ThemeToggle() {
                   borderRadius: '8px',
                 }}
               >
-                <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Icon name={icons[t].iconName} size={16} /> {icons[t].label}</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Icon name={icons[t].iconName} size={16} /> {icons[t].label}
+                </span>
               </button>
             ))}
           </div>

@@ -9,12 +9,7 @@ interface TooltipProps {
   delay?: number;
 }
 
-export function Tooltip({ 
-  children, 
-  content, 
-  position = 'top',
-  delay = 300 
-}: TooltipProps) {
+export function Tooltip({ children, content, position = 'top', delay = 300 }: TooltipProps) {
   const [isVisible, setIsVisible] = useState(false);
   const [timeoutId, setTimeoutId] = useState<NodeJS.Timeout | null>(null);
 
@@ -109,11 +104,11 @@ export function HelpTooltip({ text }: { text: string }) {
   );
 }
 
-export function InfoBadge({ 
-  children, 
-  type = 'info' 
-}: { 
-  children: ReactNode; 
+export function InfoBadge({
+  children,
+  type = 'info',
+}: {
+  children: ReactNode;
   type?: 'info' | 'warning' | 'success' | 'tip';
 }) {
   const colors = {
@@ -140,7 +135,9 @@ export function InfoBadge({
         gap: '0.5rem',
       }}
     >
-      <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center' }}><Icon name={style.iconName} size={14} color={style.text} /></span>
+      <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center' }}>
+        <Icon name={style.iconName} size={14} color={style.text} />
+      </span>
       <span>{children}</span>
     </div>
   );

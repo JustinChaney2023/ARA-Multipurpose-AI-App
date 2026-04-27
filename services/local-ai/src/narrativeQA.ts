@@ -63,7 +63,7 @@ type _ExtractionStrategy = 'deterministic' | 'single-pass' | 'qa-repair' | 'fall
 // signature fields require manual entry for authenticity
 const REQUIRED_FIELDS: FieldPath[] = [
   // 'header.recipientName',  // Manual entry only (PII)
-  'header.date'
+  'header.date',
 ];
 const OPTIONAL_STRUCTURED_FIELDS: FieldPath[] = [
   'header.time',
@@ -101,14 +101,17 @@ export async function fillNarrativeWithQA(
 
     // Limit transcript to 6000 chars — fits comfortably within the 8192-token context window
     if (cleanedTranscript.length > 6000) {
-      logger.debug('Transcript truncated for extraction', { original: cleanedTranscript.length, truncated: 6000 });
+      logger.debug('Transcript truncated for extraction', {
+        original: cleanedTranscript.length,
+        truncated: 6000,
+      });
     }
     const truncatedTranscript = cleanedTranscript.substring(0, 6000);
 
     // Run health check and LLM extraction concurrently — saves the health-check RTT
     const [ollamaAvailable, extractedDataOrNull] = await Promise.all([
       checkOllamaHealth(),
-      extractAllFields(truncatedTranscript).catch((err) => {
+      extractAllFields(truncatedTranscript).catch(err => {
         logger.warn('Single-pass extraction failed during parallel startup', {
           error: err instanceof Error ? err.message : 'Unknown error',
         });
@@ -151,13 +154,11 @@ export async function fillNarrativeWithQA(
     }
 
     let form = buildFormFromAnswers(mergedAnswers, cleanedTranscript);
-    
+
     // Skip repair step if we have good data from initial extraction
     // This saves significant time (repair can take 30-60 seconds)
     const repairFields = buildRepairFieldList(form, mergedAnswers, cleanedTranscript);
-    const needsRepair = repairFields.filter(f =>
-      f === 'header.date' || f.startsWith('narrative.')
-    );
+    const needsRepair = repairFields.filter(f => f === 'header.date' || f.startsWith('narrative.'));
 
     if (needsRepair.length > 0) {
       progress.update(65, `Repairing ${needsRepair.length} field(s)`);
@@ -169,7 +170,8 @@ export async function fillNarrativeWithQA(
       onProgress?.('repairing', 88);
 
       mergedAnswers = mergeAnswerRecords(mergedAnswers, repairedAnswers, true);
-      usedRepair = usedRepair || Object.values(repairedAnswers).some(answer => hasAnswer(answer.answer));
+      usedRepair =
+        usedRepair || Object.values(repairedAnswers).some(answer => hasAnswer(answer.answer));
       form = buildFormFromAnswers(mergedAnswers, cleanedTranscript);
     }
 
@@ -179,15 +181,19 @@ export async function fillNarrativeWithQA(
     const finalAnswers = finalizeAnswerRecord(mergedAnswers, form);
     const keySections = buildKeySections(form, cleanedTranscript);
     const confidence = buildConfidenceScores(form, finalAnswers);
-    const extractionMethod: NarrativeQAResult['extractionMethod'] = usedRepair ? 'qa-llm' : 'narrative-qa';
+    const extractionMethod: NarrativeQAResult['extractionMethod'] = usedRepair
+      ? 'qa-llm'
+      : 'narrative-qa';
 
     progress.complete('Form complete');
 
     logger.info('Hybrid fill complete', {
       extractionMethod,
       repairedFields: repairFields.length,
-      headerFields: Object.values(form.header).filter(value => Boolean(String(value).trim())).length,
-      narrativeFields: Object.values(form.narrative).filter(value => Boolean(String(value).trim())).length,
+      headerFields: Object.values(form.header).filter(value => Boolean(String(value).trim()))
+        .length,
+      narrativeFields: Object.values(form.narrative).filter(value => Boolean(String(value).trim()))
+        .length,
     });
 
     return {
@@ -311,12 +317,20 @@ async function repairFieldsBatch(
 
   if (questions.length === 0) return {};
 
-  const fieldDescriptions = questions.map(q => {
-    const type = q.type === 'textarea' ? 'detailed paragraph' : q.type === 'checkbox' ? 'true/false' : 'short value';
-    return `- "${q.fieldPath}": ${q.question} (${type})`;
-  }).join('\n');
+  const fieldDescriptions = questions
+    .map(q => {
+      const type =
+        q.type === 'textarea'
+          ? 'detailed paragraph'
+          : q.type === 'checkbox'
+            ? 'true/false'
+            : 'short value';
+      return `- "${q.fieldPath}": ${q.question} (${type})`;
+    })
+    .join('\n');
 
-  const systemPrompt = 'Extract specific fields from caregiver notes into JSON. Write detailed, complete answers for narrative fields using all relevant information from the transcript.';
+  const systemPrompt =
+    'Extract specific fields from caregiver notes into JSON. Write detailed, complete answers for narrative fields using all relevant information from the transcript.';
   const userPrompt = `The following fields need extraction from this transcript. For each field, provide the best answer from the text. Use empty string if not found.
 
 Fields needed:
@@ -359,9 +373,7 @@ JSON:`;
     for (const q of questions) {
       const value = parsed[q.fieldPath];
       if (value && typeof value === 'string' && hasAnswer(value)) {
-        const confidence = q.type === 'textarea'
-          ? narrativeConfidence(value)
-          : 'medium';
+        const confidence = q.type === 'textarea' ? narrativeConfidence(value) : 'medium';
         putAnswer(answers, q.fieldPath, value, confidence, 'batch-repair');
       }
     }
@@ -423,10 +435,12 @@ function parsePartialData(raw: string): Partial<ExtractedData> {
   }
 }
 
-
 function extractDeterministicAnswers(transcript: string): AnswerRecord {
   const answers: AnswerRecord = {};
-  const lines = transcript.split('\n').map(line => line.trim()).filter(Boolean);
+  const lines = transcript
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean);
 
   // NOTE: recipientName, recipientIdentifier, dob extraction disabled — manual entry only (HIPAA)
 
@@ -436,7 +450,9 @@ function extractDeterministicAnswers(transcript: string): AnswerRecord {
     // Date - support written months like "March 12, 2026" or numeric dates
     if (!answers['header.date']) {
       // Written month format: March 12, 2026
-      const writtenDateMatch = line.match(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s+(\d{4})\b/i);
+      const writtenDateMatch = line.match(
+        /\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s+(\d{4})\b/i
+      );
       if (writtenDateMatch) {
         const parsed = DateTimeUtils.parseWrittenDate(writtenDateMatch[0]);
         if (parsed) {
@@ -444,34 +460,55 @@ function extractDeterministicAnswers(transcript: string): AnswerRecord {
         }
       } else {
         // Numeric format: 03/12/2026
-        const dateMatch = line.match(/(?:visit date|date|on)\s*[:\-]?\s*(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})/i) || 
-                          line.match(/\b(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})\b/);
+        const dateMatch =
+          line.match(/(?:visit date|date|on)\s*[:\-]?\s*(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})/i) ||
+          line.match(/\b(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})\b/);
         if (dateMatch) {
-          putAnswer(answers, 'header.date', normalizeDateValue(dateMatch[1]), 'high', `deterministic: ${line}`);
+          putAnswer(
+            answers,
+            'header.date',
+            normalizeDateValue(dateMatch[1]),
+            'high',
+            `deterministic: ${line}`
+          );
         }
       }
     }
 
     // Time - various formats
     if (!answers['header.time']) {
-      const timeMatch = line.match(/(\d{1,2}:\d{2}\s*(?:AM|PM|am|pm))/i) ||
-                        line.match(/(?:time|at)\s*[:\-]?\s*(\d{1,2}:\d{2})/i) ||
-                        line.match(/\b(\d{3,4})\s*(?:AM|PM|am|pm)?\b/);
+      const timeMatch =
+        line.match(/(\d{1,2}:\d{2}\s*(?:AM|PM|am|pm))/i) ||
+        line.match(/(?:time|at)\s*[:\-]?\s*(\d{1,2}:\d{2})/i) ||
+        line.match(/\b(\d{3,4})\s*(?:AM|PM|am|pm)?\b/);
       if (timeMatch) {
-        putAnswer(answers, 'header.time', normalizeTimeValue(timeMatch[1]), 'medium', `deterministic: ${line}`);
+        putAnswer(
+          answers,
+          'header.time',
+          normalizeTimeValue(timeMatch[1]),
+          'medium',
+          `deterministic: ${line}`
+        );
       }
     }
 
     // ID - various formats including "Recipient ID 58421793" (no colon)
     if (!answers['header.recipientIdentifier']) {
       // Pattern 1: "Recipient ID 58421793" or "Client ID: 58421793"
-      const idMatch = line.match(/(?:recipient|client)\s*id\s*[:#\-]?\s*([A-Za-z0-9\-]{3,})/i) ||
-                        // Pattern 2: "ID 58421793" or "ID: 58421793"
-                        line.match(/\bid\s*(?:number|#)?\s*[:#\-]?\s*([A-Za-z0-9\-]{5,})/i) ||
-                        // Pattern 3: "ID#58421793"
-                        line.match(/\bid#([A-Za-z0-9\-]{3,})/i);
+      const idMatch =
+        line.match(/(?:recipient|client)\s*id\s*[:#\-]?\s*([A-Za-z0-9\-]{3,})/i) ||
+        // Pattern 2: "ID 58421793" or "ID: 58421793"
+        line.match(/\bid\s*(?:number|#)?\s*[:#\-]?\s*([A-Za-z0-9\-]{5,})/i) ||
+        // Pattern 3: "ID#58421793"
+        line.match(/\bid#([A-Za-z0-9\-]{3,})/i);
       if (idMatch) {
-        putAnswer(answers, 'header.recipientIdentifier', idMatch[1].trim(), 'high', `deterministic: ${line}`);
+        putAnswer(
+          answers,
+          'header.recipientIdentifier',
+          idMatch[1].trim(),
+          'high',
+          `deterministic: ${line}`
+        );
       }
     }
 
@@ -496,9 +533,12 @@ function extractDeterministicAnswers(transcript: string): AnswerRecord {
 
     // Location - residence, home, facility, etc.
     if (!answers['header.location']) {
-      const locationMatch = line.match(/(?:at|in)\s+(?:her|his|the)\s+(?:residence|home)\s+(?:in\s+)?([A-Za-z\s,]+)/i) ||
-                           line.match(/(?:location|where)[:\-]?\s*(.+)/i) ||
-                           line.match(/conducted\s+(?:at|in)\s+([A-Za-z\s,]+)/i);
+      const locationMatch =
+        line.match(
+          /(?:at|in)\s+(?:her|his|the)\s+(?:residence|home)\s+(?:in\s+)?([A-Za-z\s,]+)/i
+        ) ||
+        line.match(/(?:location|where)[:\-]?\s*(.+)/i) ||
+        line.match(/conducted\s+(?:at|in)\s+([A-Za-z\s,]+)/i);
       if (locationMatch) {
         const location = locationMatch[1].trim().replace(/\.$/, '');
         if (location.length < 100) {
@@ -521,19 +561,41 @@ function extractDeterministicAnswers(transcript: string): AnswerRecord {
     // SIH checkbox - check if mentioned
     if (lowerLine.includes('sih') || lowerLine.includes('senior in-home')) {
       const isChecked = !lowerLine.includes('not sih') && !lowerLine.includes('non-sih');
-      putAnswer(answers, 'careCoordinationType.sih', isChecked ? 'true' : 'false', 'high', `deterministic: ${line}`);
+      putAnswer(
+        answers,
+        'careCoordinationType.sih',
+        isChecked ? 'true' : 'false',
+        'high',
+        `deterministic: ${line}`
+      );
     }
 
     // HCBW checkbox
-    if (lowerLine.includes('hcbw') || lowerLine.includes('home and community') || lowerLine.includes('waiver')) {
+    if (
+      lowerLine.includes('hcbw') ||
+      lowerLine.includes('home and community') ||
+      lowerLine.includes('waiver')
+    ) {
       const isChecked = !lowerLine.includes('not hcbw') && !lowerLine.includes('non-hcbw');
-      putAnswer(answers, 'careCoordinationType.hcbw', isChecked ? 'true' : 'false', 'high', `deterministic: ${line}`);
+      putAnswer(
+        answers,
+        'careCoordinationType.hcbw',
+        isChecked ? 'true' : 'false',
+        'high',
+        `deterministic: ${line}`
+      );
     }
   }
 
   const inferredLocation = inferLocation(transcript);
   if (inferredLocation && !answers['header.location']) {
-    putAnswer(answers, 'header.location', inferredLocation, 'medium', `deterministic: ${inferredLocation}`);
+    putAnswer(
+      answers,
+      'header.location',
+      inferredLocation,
+      'medium',
+      `deterministic: ${inferredLocation}`
+    );
   }
 
   // NOTE: signature.dateSignied auto-fill disabled - manual entry only (signature authenticity)
@@ -555,28 +617,98 @@ function buildAnswersFromExtractedData(data: ExtractedData): AnswerRecord {
   const answers: AnswerRecord = {};
   // NOTE: Sensitive PII fields excluded - manual entry only (HIPAA compliance)
   // putAnswer(answers, 'header.recipientName', data.recipientName, data.recipientName ? 'medium' : 'low', 'single-pass');
-  putAnswer(answers, 'header.date', normalizeDateValue(data.date), data.date ? 'medium' : 'low', 'single-pass');
-  putAnswer(answers, 'header.time', normalizeTimeValue(data.time), data.time ? 'medium' : 'low', 'single-pass');
+  putAnswer(
+    answers,
+    'header.date',
+    normalizeDateValue(data.date),
+    data.date ? 'medium' : 'low',
+    'single-pass'
+  );
+  putAnswer(
+    answers,
+    'header.time',
+    normalizeTimeValue(data.time),
+    data.time ? 'medium' : 'low',
+    'single-pass'
+  );
   // NOTE: recipientIdentifier excluded - manual entry only (PII)
   // putAnswer(answers, 'header.recipientIdentifier', data.recipientIdentifier, data.recipientIdentifier ? 'medium' : 'low', 'single-pass');
   // NOTE: DOB excluded - manual entry only (PII)
   // putAnswer(answers, 'header.dob', normalizeDateValue(data.dob), data.dob ? 'medium' : 'low', 'single-pass');
-  putAnswer(answers, 'header.location', data.location, data.location ? 'medium' : 'low', 'single-pass');
-  putAnswer(answers, 'careCoordinationType.sih', data.sih ? 'true' : 'false', data.sih ? 'medium' : 'low', 'single-pass');
-  putAnswer(answers, 'careCoordinationType.hcbw', data.hcbw ? 'true' : 'false', data.hcbw ? 'medium' : 'low', 'single-pass');
-  putAnswer(answers, 'narrative.recipientAndVisitObservations', data.recipientAndVisitObservations, narrativeConfidence(data.recipientAndVisitObservations), 'single-pass');
-  putAnswer(answers, 'narrative.healthEmotionalStatus', data.healthEmotionalStatus, narrativeConfidence(data.healthEmotionalStatus), 'single-pass');
-  putAnswer(answers, 'narrative.reviewOfServices', data.reviewOfServices, narrativeConfidence(data.reviewOfServices), 'single-pass');
-  putAnswer(answers, 'narrative.progressTowardGoals', data.progressTowardGoals, narrativeConfidence(data.progressTowardGoals), 'single-pass');
-  putAnswer(answers, 'narrative.followUpTasks', data.followUpTasks, narrativeConfidence(data.followUpTasks), 'single-pass');
-  putAnswer(answers, 'narrative.additionalNotes', data.additionalNotes, narrativeConfidence(data.additionalNotes), 'single-pass');
+  putAnswer(
+    answers,
+    'header.location',
+    data.location,
+    data.location ? 'medium' : 'low',
+    'single-pass'
+  );
+  putAnswer(
+    answers,
+    'careCoordinationType.sih',
+    data.sih ? 'true' : 'false',
+    data.sih ? 'medium' : 'low',
+    'single-pass'
+  );
+  putAnswer(
+    answers,
+    'careCoordinationType.hcbw',
+    data.hcbw ? 'true' : 'false',
+    data.hcbw ? 'medium' : 'low',
+    'single-pass'
+  );
+  putAnswer(
+    answers,
+    'narrative.recipientAndVisitObservations',
+    data.recipientAndVisitObservations,
+    narrativeConfidence(data.recipientAndVisitObservations),
+    'single-pass'
+  );
+  putAnswer(
+    answers,
+    'narrative.healthEmotionalStatus',
+    data.healthEmotionalStatus,
+    narrativeConfidence(data.healthEmotionalStatus),
+    'single-pass'
+  );
+  putAnswer(
+    answers,
+    'narrative.reviewOfServices',
+    data.reviewOfServices,
+    narrativeConfidence(data.reviewOfServices),
+    'single-pass'
+  );
+  putAnswer(
+    answers,
+    'narrative.progressTowardGoals',
+    data.progressTowardGoals,
+    narrativeConfidence(data.progressTowardGoals),
+    'single-pass'
+  );
+  putAnswer(
+    answers,
+    'narrative.followUpTasks',
+    data.followUpTasks,
+    narrativeConfidence(data.followUpTasks),
+    'single-pass'
+  );
+  putAnswer(
+    answers,
+    'narrative.additionalNotes',
+    data.additionalNotes,
+    narrativeConfidence(data.additionalNotes),
+    'single-pass'
+  );
   // NOTE: Signature fields excluded - manual entry only (authenticity)
   // putAnswer(answers, 'signature.careCoordinatorName', data.careCoordinatorName, data.careCoordinatorName ? 'medium' : 'low', 'single-pass');
   // putAnswer(answers, 'signature.dateSigned', normalizeDateValue(data.dateSigned), data.dateSigned ? 'medium' : 'low', 'single-pass');
   return answers;
 }
 
-function buildRepairFieldList(form: MonthlyCareCoordinationForm, answers: AnswerRecord, transcript: string): FieldPath[] {
+function buildRepairFieldList(
+  form: MonthlyCareCoordinationForm,
+  answers: AnswerRecord,
+  transcript: string
+): FieldPath[] {
   const fields = new Set<FieldPath>();
 
   for (const field of REQUIRED_FIELDS) {
@@ -624,7 +756,10 @@ function transcriptLikelyContainsField(transcript: string, field: FieldPath): bo
     .some(token => lowerTranscript.includes(token));
 }
 
-function buildFormFromAnswers(answers: AnswerRecord, transcript: string): MonthlyCareCoordinationForm {
+function buildFormFromAnswers(
+  answers: AnswerRecord,
+  transcript: string
+): MonthlyCareCoordinationForm {
   const form = createEmptyForm();
 
   for (const [fieldPath, qaAnswer] of Object.entries(answers)) {
@@ -633,34 +768,35 @@ function buildFormFromAnswers(answers: AnswerRecord, transcript: string): Monthl
 
   // Fallback: populate narrative fields from transcript if still empty
   const extractedSections = extractNarrativeSections(transcript);
-  
+
   // Helper to get content or placeholder
   const getContent = (field: keyof typeof form.narrative): string => {
     const existing = form.narrative[field];
     if (existing && existing.trim().length > 10) return existing;
-    
+
     const sectionKey = `narrative.${field}` as FieldPath;
     if (extractedSections[sectionKey]) return extractedSections[sectionKey];
-    
+
     return '';
   };
 
   // Fill narrative fields with extracted content or placeholder
   const observations = getContent('recipientAndVisitObservations');
-  form.narrative.recipientAndVisitObservations = observations || 'No information found in transcript.';
-  
+  form.narrative.recipientAndVisitObservations =
+    observations || 'No information found in transcript.';
+
   const health = getContent('healthEmotionalStatus');
   form.narrative.healthEmotionalStatus = health || 'No information found in transcript.';
-  
+
   const services = getContent('reviewOfServices');
   form.narrative.reviewOfServices = services || 'No information found in transcript.';
-  
+
   const goals = getContent('progressTowardGoals');
   form.narrative.progressTowardGoals = goals || 'No information found in transcript.';
-  
+
   const followUp = getContent('followUpTasks');
   form.narrative.followUpTasks = followUp || 'No information found in transcript.';
-  
+
   // Additional notes gets remaining transcript content if empty
   if (!form.narrative.additionalNotes.trim()) {
     // Check if there's content that didn't fit in other fields
@@ -671,7 +807,7 @@ function buildFormFromAnswers(answers: AnswerRecord, transcript: string): Monthl
       form.narrative.progressTowardGoals,
       form.narrative.followUpTasks,
     ].join(' ');
-    
+
     // If transcript has content not captured in other fields, add it here
     const remainingContent = transcript.substring(usedContent.length).trim();
     if (remainingContent.length > 50 && remainingContent !== usedContent) {
@@ -684,13 +820,18 @@ function buildFormFromAnswers(answers: AnswerRecord, transcript: string): Monthl
   return form;
 }
 
-function applyAnswerToForm(form: MonthlyCareCoordinationForm, fieldPath: FieldPath, answer: string): void {
+function applyAnswerToForm(
+  form: MonthlyCareCoordinationForm,
+  fieldPath: FieldPath,
+  answer: string
+): void {
   const [section, field] = fieldPath.split('.') as [string, string];
   const question = getQuestionByFieldPath(fieldPath);
   const type = question?.type;
 
   if (section === 'careCoordinationType') {
-    form.careCoordinationType[field as keyof typeof form.careCoordinationType] = answer.toLowerCase() === 'true';
+    form.careCoordinationType[field as keyof typeof form.careCoordinationType] =
+      answer.toLowerCase() === 'true';
     return;
   }
 
@@ -706,7 +847,8 @@ function applyAnswerToForm(form: MonthlyCareCoordinationForm, fieldPath: FieldPa
   }
 
   if (section === 'narrative') {
-    form.narrative[field as keyof typeof form.narrative] = type === 'textarea' ? sanitizeString(answer, 2500) : sanitizeString(answer);
+    form.narrative[field as keyof typeof form.narrative] =
+      type === 'textarea' ? sanitizeString(answer, 2500) : sanitizeString(answer);
     return;
   }
 
@@ -719,7 +861,10 @@ function applyAnswerToForm(form: MonthlyCareCoordinationForm, fieldPath: FieldPa
   }
 }
 
-function finalizeAnswerRecord(answers: AnswerRecord, form: MonthlyCareCoordinationForm): AnswerRecord {
+function finalizeAnswerRecord(
+  answers: AnswerRecord,
+  form: MonthlyCareCoordinationForm
+): AnswerRecord {
   const finalAnswers: AnswerRecord = { ...answers };
 
   for (const fieldPath of QUESTION_FIELD_PATHS) {
@@ -743,10 +888,15 @@ function finalizeAnswerRecord(answers: AnswerRecord, form: MonthlyCareCoordinati
   return finalAnswers;
 }
 
-function buildKeySections(form: MonthlyCareCoordinationForm, transcript: string): Record<string, string> {
+function buildKeySections(
+  form: MonthlyCareCoordinationForm,
+  transcript: string
+): Record<string, string> {
   return {
-    'Recipient & Visit Observations': form.narrative.recipientAndVisitObservations || transcript.substring(0, 800),
-    'Health/Emotional Status': form.narrative.healthEmotionalStatus || transcript.substring(800, 1600),
+    'Recipient & Visit Observations':
+      form.narrative.recipientAndVisitObservations || transcript.substring(0, 800),
+    'Health/Emotional Status':
+      form.narrative.healthEmotionalStatus || transcript.substring(800, 1600),
     'Review of Services': form.narrative.reviewOfServices || transcript.substring(1600, 2400),
     'Progress Toward Goals': form.narrative.progressTowardGoals || transcript.substring(2400, 3200),
     'Follow-up Tasks': form.narrative.followUpTasks || transcript.substring(3200, 4000),
@@ -774,12 +924,22 @@ const ALL_FORM_FIELDS: FieldPath[] = [
   'signature.dateSigned',
 ];
 
-function buildConfidenceScores(_form: MonthlyCareCoordinationForm, answers: AnswerRecord): FieldConfidence[] {
+function buildConfidenceScores(
+  _form: MonthlyCareCoordinationForm,
+  answers: AnswerRecord
+): FieldConfidence[] {
   return buildConfidenceFromAnswers(ALL_FORM_FIELDS, answers);
 }
 
-function buildFallbackResult(transcript: string, deterministicAnswers: AnswerRecord): NarrativeQAResult {
-  const fallbackAnswers = mergeAnswerRecords(deterministicAnswers, buildFallbackNarrativeAnswers(transcript), true);
+function buildFallbackResult(
+  transcript: string,
+  deterministicAnswers: AnswerRecord
+): NarrativeQAResult {
+  const fallbackAnswers = mergeAnswerRecords(
+    deterministicAnswers,
+    buildFallbackNarrativeAnswers(transcript),
+    true
+  );
   const form = buildFormFromAnswers(fallbackAnswers, transcript);
 
   return {
@@ -827,7 +987,11 @@ function buildFallbackNarrativeAnswers(transcript: string): AnswerRecord {
   };
 }
 
-function mergeAnswerRecords(base: AnswerRecord, incoming: AnswerRecord, preferIncoming = true): AnswerRecord {
+function mergeAnswerRecords(
+  base: AnswerRecord,
+  incoming: AnswerRecord,
+  preferIncoming = true
+): AnswerRecord {
   const merged: AnswerRecord = { ...base };
 
   for (const [fieldPath, answer] of Object.entries(incoming)) {
@@ -883,7 +1047,11 @@ function putAnswer(
 }
 
 function normalizeAnswerValue(fieldPath: FieldPath, value: string): string {
-  if (fieldPath === 'header.date' || fieldPath === 'header.dob' || fieldPath === 'signature.dateSigned') {
+  if (
+    fieldPath === 'header.date' ||
+    fieldPath === 'header.dob' ||
+    fieldPath === 'signature.dateSigned'
+  ) {
     return normalizeDateValue(value);
   }
   if (fieldPath === 'header.time') {
@@ -899,7 +1067,9 @@ function getFieldValue(form: MonthlyCareCoordinationForm, fieldPath: FieldPath):
   const [section, field] = fieldPath.split('.') as [string, string];
 
   if (section === 'careCoordinationType') {
-    return form.careCoordinationType[field as keyof typeof form.careCoordinationType] ? 'true' : 'false';
+    return form.careCoordinationType[field as keyof typeof form.careCoordinationType]
+      ? 'true'
+      : 'false';
   }
 
   if (section === 'header') {
@@ -918,10 +1088,10 @@ function extractNarrativeSections(transcript: string): Partial<Record<FieldPath,
 
   // Split transcript into sentences for better processing
   const sentences = transcript.match(/[^.!?]+[.!?]+/g) || [transcript];
-  
+
   // Track which sentences have been assigned to sections
   const assignedSentences = new Set<number>();
-  
+
   // Priority order for section extraction
   const sectionDefinitions: Array<{
     field: FieldPath;
@@ -930,55 +1100,130 @@ function extractNarrativeSections(transcript: string): Partial<Record<FieldPath,
   }> = [
     {
       field: 'narrative.recipientAndVisitObservations',
-      keywords: ['recipient & visit observations', 'recipient and visit observations', 'visit observations', 'cc met with', 'care coordinator met', 'the client presented', 'client was', 'client appeared', 'support staff were present', 'during the visit', 'the visit concluded', 'home environment', 'home condition'],
-      description: 'visit observations'
+      keywords: [
+        'recipient & visit observations',
+        'recipient and visit observations',
+        'visit observations',
+        'cc met with',
+        'care coordinator met',
+        'the client presented',
+        'client was',
+        'client appeared',
+        'support staff were present',
+        'during the visit',
+        'the visit concluded',
+        'home environment',
+        'home condition',
+      ],
+      description: 'visit observations',
     },
     {
       field: 'narrative.healthEmotionalStatus',
-      keywords: ['health/emotional status', 'health status', 'medication', 'medication adjustment', 'doctor', 'physician', 'hospital', 'fall', 'pain', 'behavior', 'emotional', 'mood', 'sleep', 'appetite', 'weight', 'blood pressure', 'feeling well', 'sleep has improved', 'health', 'diagnosis', 'symptom', 'vital signs'],
-      description: 'health status'
+      keywords: [
+        'health/emotional status',
+        'health status',
+        'medication',
+        'medication adjustment',
+        'doctor',
+        'physician',
+        'hospital',
+        'fall',
+        'pain',
+        'behavior',
+        'emotional',
+        'mood',
+        'sleep',
+        'appetite',
+        'weight',
+        'blood pressure',
+        'feeling well',
+        'sleep has improved',
+        'health',
+        'diagnosis',
+        'symptom',
+        'vital signs',
+      ],
+      description: 'health status',
     },
     {
       field: 'narrative.reviewOfServices',
-      keywords: ['review of services', 'services review', 'services being provided', 'residential', 'supported employment', 'day habilitation', 'personal care', 'aide', 'nursing', 'therapy', 'provider', 'contracted providers', 'transportation', 'service hours'],
-      description: 'services review'
+      keywords: [
+        'review of services',
+        'services review',
+        'services being provided',
+        'residential',
+        'supported employment',
+        'day habilitation',
+        'personal care',
+        'aide',
+        'nursing',
+        'therapy',
+        'provider',
+        'contracted providers',
+        'transportation',
+        'service hours',
+      ],
+      description: 'services review',
     },
     {
       field: 'narrative.progressTowardGoals',
-      keywords: ['progress toward goals', 'goal progress', 'progress toward', 'barrier to', 'independence', 'skill development', 'achieving', 'positive reinforcement', 'cooperate with staff', 'manage interpersonal', 'care plan goal'],
-      description: 'goals progress'
+      keywords: [
+        'progress toward goals',
+        'goal progress',
+        'progress toward',
+        'barrier to',
+        'independence',
+        'skill development',
+        'achieving',
+        'positive reinforcement',
+        'cooperate with staff',
+        'manage interpersonal',
+        'care plan goal',
+      ],
+      description: 'goals progress',
     },
     {
       field: 'narrative.followUpTasks',
-      keywords: ['follow up tasks', 'follow-up tasks', 'care coordinator follow up', 'follow-up needed', 'coordinator will', 'next visit', 'schedule appointment', 'referral', 'arrange', 'future visit was discussed'],
-      description: 'follow-up tasks'
+      keywords: [
+        'follow up tasks',
+        'follow-up tasks',
+        'care coordinator follow up',
+        'follow-up needed',
+        'coordinator will',
+        'next visit',
+        'schedule appointment',
+        'referral',
+        'arrange',
+        'future visit was discussed',
+      ],
+      description: 'follow-up tasks',
     },
   ];
-  
+
   // Extract content for each section
   for (const sectionDef of sectionDefinitions) {
     const matchingSentences: string[] = [];
-    
+
     for (let i = 0; i < sentences.length; i++) {
       if (assignedSentences.has(i)) continue; // Skip already assigned sentences
-      
+
       const sentence = sentences[i];
       const lowerSentence = sentence.toLowerCase();
-      
+
       // Check if sentence contains keywords for this section
       const matches = sectionDef.keywords.some(keyword => lowerSentence.includes(keyword));
-      
+
       if (matches) {
         matchingSentences.push(sentence.trim());
         assignedSentences.add(i);
       }
     }
-    
+
     if (matchingSentences.length > 0) {
       sections[sectionDef.field] = matchingSentences.join(' ').substring(0, 3000);
     }
   }
-  
+
   // Additional Notes: collect remaining unassigned sentences
   const remainingSentences: string[] = [];
   for (let i = 0; i < sentences.length; i++) {
@@ -986,7 +1231,7 @@ function extractNarrativeSections(transcript: string): Partial<Record<FieldPath,
       remainingSentences.push(sentences[i].trim());
     }
   }
-  
+
   if (remainingSentences.length > 0) {
     sections['narrative.additionalNotes'] = remainingSentences.join(' ').substring(0, 3000);
   }
@@ -1006,22 +1251,22 @@ function sanitizeString(value: unknown, maxLength = 200): string {
   if (typeof value !== 'string') return '';
   const cleaned = value.replace(/\s+/g, ' ').trim();
   if (cleaned.length <= maxLength) return cleaned;
-  
+
   // Try to find sentence boundary first
   const truncated = cleaned.substring(0, maxLength);
-  
+
   // Look for sentence-ending punctuation followed by space or end of string
   const sentenceEndMatch = truncated.match(/.*[.!?]+(?:\s|$)/);
   if (sentenceEndMatch && sentenceEndMatch[0].length > maxLength * 0.5) {
     return sentenceEndMatch[0].trim();
   }
-  
+
   // Fall back to word boundary
   const lastSpace = truncated.lastIndexOf(' ');
   if (lastSpace > maxLength * 0.8) {
     return truncated.substring(0, lastSpace);
   }
-  
+
   return truncated;
 }
 

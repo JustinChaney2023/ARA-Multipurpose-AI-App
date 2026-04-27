@@ -10,7 +10,8 @@ import type {
   NarrativeSections,
   Signature,
   FieldPath,
- FieldMetadata } from '../schema/mccmc_v2.js';
+  FieldMetadata,
+} from '../schema/mccmc_v2.js';
 
 // ============================================================================
 // Section Types
@@ -144,8 +145,6 @@ export function setFieldValue(
 // Field Metadata (extends schema definition)
 // ============================================================================
 
-
-
 export { FieldMetadata };
 
 // Extended metadata with runtime information
@@ -155,29 +154,148 @@ interface ExtendedFieldMetadata extends FieldMetadata {
 
 export const FIELD_METADATA: Record<FieldPath, ExtendedFieldMetadata> = {
   // Header fields
-  'header.recipientName': { path: 'header.recipientName', label: 'Recipient Name', type: 'text', required: false, section: 'header', fieldType: 'string' },
-  'header.date': { path: 'header.date', label: 'Date', type: 'text', required: false, section: 'header', fieldType: 'string' },
-  'header.time': { path: 'header.time', label: 'Time', type: 'text', required: false, section: 'header', fieldType: 'string' },
-  'header.recipientIdentifier': { path: 'header.recipientIdentifier', label: 'Recipient ID', type: 'text', required: false, section: 'header', fieldType: 'string' },
-  'header.dob': { path: 'header.dob', label: 'Date of Birth', type: 'text', required: false, section: 'header', fieldType: 'string' },
-  'header.location': { path: 'header.location', label: 'Location', type: 'text', required: false, section: 'header', fieldType: 'string' },
+  'header.recipientName': {
+    path: 'header.recipientName',
+    label: 'Recipient Name',
+    type: 'text',
+    required: false,
+    section: 'header',
+    fieldType: 'string',
+  },
+  'header.date': {
+    path: 'header.date',
+    label: 'Date',
+    type: 'text',
+    required: false,
+    section: 'header',
+    fieldType: 'string',
+  },
+  'header.time': {
+    path: 'header.time',
+    label: 'Time',
+    type: 'text',
+    required: false,
+    section: 'header',
+    fieldType: 'string',
+  },
+  'header.recipientIdentifier': {
+    path: 'header.recipientIdentifier',
+    label: 'Recipient ID',
+    type: 'text',
+    required: false,
+    section: 'header',
+    fieldType: 'string',
+  },
+  'header.dob': {
+    path: 'header.dob',
+    label: 'Date of Birth',
+    type: 'text',
+    required: false,
+    section: 'header',
+    fieldType: 'string',
+  },
+  'header.location': {
+    path: 'header.location',
+    label: 'Location',
+    type: 'text',
+    required: false,
+    section: 'header',
+    fieldType: 'string',
+  },
 
   // Care Coordination Type fields
-  'careCoordinationType.sih': { path: 'careCoordinationType.sih', label: 'SIH', type: 'checkbox', required: false, section: 'careCoordinationType', fieldType: 'boolean' },
-  'careCoordinationType.hcbw': { path: 'careCoordinationType.hcbw', label: 'HCBW', type: 'checkbox', required: false, section: 'careCoordinationType', fieldType: 'boolean' },
+  'careCoordinationType.sih': {
+    path: 'careCoordinationType.sih',
+    label: 'SIH',
+    type: 'checkbox',
+    required: false,
+    section: 'careCoordinationType',
+    fieldType: 'boolean',
+  },
+  'careCoordinationType.hcbw': {
+    path: 'careCoordinationType.hcbw',
+    label: 'HCBW',
+    type: 'checkbox',
+    required: false,
+    section: 'careCoordinationType',
+    fieldType: 'boolean',
+  },
 
   // Narrative fields
-  'narrative.recipientAndVisitObservations': { path: 'narrative.recipientAndVisitObservations', label: 'Recipient & Visit Observations', type: 'textarea', required: false, section: 'narrative', fieldType: 'string' },
-  'narrative.healthEmotionalStatus': { path: 'narrative.healthEmotionalStatus', label: 'Health/Emotional Status', type: 'textarea', required: false, section: 'narrative', fieldType: 'string' },
-  'narrative.reviewOfServices': { path: 'narrative.reviewOfServices', label: 'Review of Services', type: 'textarea', required: false, section: 'narrative', fieldType: 'string' },
-  'narrative.progressTowardGoals': { path: 'narrative.progressTowardGoals', label: 'Progress Toward Goals', type: 'textarea', required: false, section: 'narrative', fieldType: 'string' },
-  'narrative.additionalNotes': { path: 'narrative.additionalNotes', label: 'Additional Notes', type: 'textarea', required: false, section: 'narrative', fieldType: 'string' },
-  'narrative.followUpTasks': { path: 'narrative.followUpTasks', label: 'Follow Up Tasks', type: 'textarea', required: false, section: 'narrative', fieldType: 'string' },
+  'narrative.recipientAndVisitObservations': {
+    path: 'narrative.recipientAndVisitObservations',
+    label: 'Recipient & Visit Observations',
+    type: 'textarea',
+    required: false,
+    section: 'narrative',
+    fieldType: 'string',
+  },
+  'narrative.healthEmotionalStatus': {
+    path: 'narrative.healthEmotionalStatus',
+    label: 'Health/Emotional Status',
+    type: 'textarea',
+    required: false,
+    section: 'narrative',
+    fieldType: 'string',
+  },
+  'narrative.reviewOfServices': {
+    path: 'narrative.reviewOfServices',
+    label: 'Review of Services',
+    type: 'textarea',
+    required: false,
+    section: 'narrative',
+    fieldType: 'string',
+  },
+  'narrative.progressTowardGoals': {
+    path: 'narrative.progressTowardGoals',
+    label: 'Progress Toward Goals',
+    type: 'textarea',
+    required: false,
+    section: 'narrative',
+    fieldType: 'string',
+  },
+  'narrative.additionalNotes': {
+    path: 'narrative.additionalNotes',
+    label: 'Additional Notes',
+    type: 'textarea',
+    required: false,
+    section: 'narrative',
+    fieldType: 'string',
+  },
+  'narrative.followUpTasks': {
+    path: 'narrative.followUpTasks',
+    label: 'Follow Up Tasks',
+    type: 'textarea',
+    required: false,
+    section: 'narrative',
+    fieldType: 'string',
+  },
 
   // Signature fields
-  'signature.careCoordinatorName': { path: 'signature.careCoordinatorName', label: 'Care Coordinator Name', type: 'text', required: false, section: 'signature', fieldType: 'string' },
-  'signature.signature': { path: 'signature.signature', label: 'Signature', type: 'text', required: false, section: 'signature', fieldType: 'string' },
-  'signature.dateSigned': { path: 'signature.dateSigned', label: 'Date Signed', type: 'text', required: false, section: 'signature', fieldType: 'string' },
+  'signature.careCoordinatorName': {
+    path: 'signature.careCoordinatorName',
+    label: 'Care Coordinator Name',
+    type: 'text',
+    required: false,
+    section: 'signature',
+    fieldType: 'string',
+  },
+  'signature.signature': {
+    path: 'signature.signature',
+    label: 'Signature',
+    type: 'text',
+    required: false,
+    section: 'signature',
+    fieldType: 'string',
+  },
+  'signature.dateSigned': {
+    path: 'signature.dateSigned',
+    label: 'Date Signed',
+    type: 'text',
+    required: false,
+    section: 'signature',
+    fieldType: 'string',
+  },
 };
 
 export function getFieldMetadata(path: FieldPath): FieldMetadata | undefined {
@@ -250,9 +368,7 @@ export function getCompletionStats(form: MonthlyCareCoordinationForm): {
  * Get all empty required fields
  */
 export function getEmptyRequiredFields(form: MonthlyCareCoordinationForm): FieldPath[] {
-  return getAllFields().filter(path =>
-    isRequiredField(path) && isFieldEmpty(form, path)
-  );
+  return getAllFields().filter(path => isRequiredField(path) && isFieldEmpty(form, path));
 }
 
 /**

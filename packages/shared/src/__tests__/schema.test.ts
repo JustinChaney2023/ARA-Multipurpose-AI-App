@@ -5,7 +5,6 @@ import {
   validateForm,
   safeValidateForm,
   FORM_FIELDS,
-
   type MonthlyCareCoordinationForm,
 } from '../schema/mccmc_v1.js';
 
@@ -13,7 +12,7 @@ describe('MCCMC Form Schema', () => {
   describe('createEmptyForm', () => {
     it('should create a form with all fields as empty/false defaults', () => {
       const form = createEmptyForm();
-      
+
       // Header should be empty strings
       expect(form.header.recipientName).toBe('');
       expect(form.header.date).toBe('');
@@ -21,7 +20,7 @@ describe('MCCMC Form Schema', () => {
       expect(form.header.recipientIdentifier).toBe('');
       expect(form.header.dob).toBe('');
       expect(form.header.location).toBe('');
-      
+
       // Checkboxes should be false
       expect(form.careCoordinationType.sih).toBe(false);
       expect(form.careCoordinationType.hcbw).toBe(false);
@@ -29,14 +28,14 @@ describe('MCCMC Form Schema', () => {
       expect(form.contactType.otherMonitoringContact).toBe(false);
       expect(form.contactType.homeVisit).toBe(false);
       expect(form.contactType.serviceSiteVisit).toBe(false);
-      
+
       // Narrative should be empty strings
       expect(form.narrative.recipientAndVisitObservations).toBe('');
       expect(form.narrative.healthEmotionalStatus).toBe('');
       expect(form.narrative.reviewOfServices).toBe('');
       expect(form.narrative.progressTowardGoals).toBe('');
       expect(form.narrative.additionalNotes).toBe('');
-      
+
       // Notes for reviewer should be empty
       expect(form.notesForReviewer).toBe('');
     });
@@ -135,7 +134,7 @@ describe('MCCMC Form Schema', () => {
     it('should return success for valid form', () => {
       const form = createEmptyForm();
       const result = safeValidateForm(form);
-      
+
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.data).toEqual(form);
@@ -145,7 +144,7 @@ describe('MCCMC Form Schema', () => {
     it('should return error for invalid form', () => {
       const invalidForm = { invalid: 'data' };
       const result = safeValidateForm(invalidForm);
-      
+
       expect(result.success).toBe(false);
       if (!result.success) {
         expect(result.error).toBeDefined();
@@ -162,7 +161,7 @@ describe('MCCMC Form Schema', () => {
 
       const json = JSON.stringify(form);
       const parsed = JSON.parse(json);
-      
+
       const validated = validateForm(parsed);
       expect(validated.header.recipientName).toBe('Test Name');
       expect(validated.careCoordinationType.sih).toBe(true);
@@ -171,13 +170,16 @@ describe('MCCMC Form Schema', () => {
 
     it('should handle special characters in text fields', () => {
       const form = createEmptyForm();
-      form.narrative.recipientAndVisitObservations = 'Special chars: "quotes", \n newlines, emojis 🎉';
+      form.narrative.recipientAndVisitObservations =
+        'Special chars: "quotes", \n newlines, emojis 🎉';
 
       const json = JSON.stringify(form);
       const parsed = JSON.parse(json);
-      
+
       const validated = validateForm(parsed);
-      expect(validated.narrative.recipientAndVisitObservations).toBe('Special chars: "quotes", \n newlines, emojis 🎉');
+      expect(validated.narrative.recipientAndVisitObservations).toBe(
+        'Special chars: "quotes", \n newlines, emojis 🎉'
+      );
     });
   });
 
@@ -186,10 +188,10 @@ describe('MCCMC Form Schema', () => {
       // Should have fields from all sections
       const headerFields = FORM_FIELDS.filter(f => f.section === 'Header');
       const narrativeFields = FORM_FIELDS.filter(f => f.section === 'Narrative');
-      
+
       expect(headerFields.length).toBeGreaterThan(0);
       expect(narrativeFields.length).toBeGreaterThan(0);
-      
+
       // All fields should have required properties
       for (const field of FORM_FIELDS) {
         expect(field.path).toBeDefined();

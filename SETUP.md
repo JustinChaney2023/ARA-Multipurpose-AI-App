@@ -1,6 +1,7 @@
 # ARA Caregiver Assistant - Complete Setup Guide
 
-This guide will walk you through setting up the ARA Caregiver Assistant on any platform (Windows, macOS, or Linux).
+This guide will walk you through setting up the ARA Caregiver Assistant on any
+platform (Windows, macOS, or Linux).
 
 ## Table of Contents
 
@@ -30,6 +31,7 @@ npm run setup
 ```
 
 The setup script will:
+
 1. Check for Node.js (>= 18.0.0)
 2. Install npm dependencies
 3. Build the shared package
@@ -40,22 +42,23 @@ The setup script will:
 
 ### Required
 
-| Software | Version | Purpose |
-|----------|---------|---------|
+| Software    | Version   | Purpose            |
+| ----------- | --------- | ------------------ |
 | **Node.js** | >= 18.0.0 | JavaScript runtime |
-| **npm** | >= 9.0.0 | Package manager |
+| **npm**     | >= 9.0.0  | Package manager    |
 
 ### Optional
 
-| Software | Version | Purpose |
-|----------|---------|---------|
-| **Rust** | >= 1.70.0 | Build desktop app (Tauri) |
-| **Ollama** | latest | AI-enhanced text extraction |
-| **Docker** | >= 20.0.0 | Containerized deployment |
+| Software   | Version   | Purpose                     |
+| ---------- | --------- | --------------------------- |
+| **Rust**   | >= 1.70.0 | Build desktop app (Tauri)   |
+| **Ollama** | latest    | AI-enhanced text extraction |
+| **Docker** | >= 20.0.0 | Containerized deployment    |
 
 ### Checking Prerequisites
 
 **Windows (PowerShell):**
+
 ```powershell
 node --version    # Should be v18.x.x or higher
 npm --version     # Should be 9.x.x or higher
@@ -64,6 +67,7 @@ ollama --version  # Optional - for AI features
 ```
 
 **macOS/Linux:**
+
 ```bash
 node --version    # Should be v18.x.x or higher
 npm --version     # Should be 9.x.x or higher
@@ -78,21 +82,25 @@ ollama --version  # Optional - for AI features
 #### 1. Install Node.js
 
 **Option A: Using winget (recommended)**
+
 ```powershell
 winget install OpenJS.NodeJS.LTS
 ```
 
 **Option B: Download from website**
+
 - Visit https://nodejs.org/
 - Download the LTS version (v20 or higher)
 - Run the installer
 
 **Option C: Using Chocolatey**
+
 ```powershell
 choco install nodejs-lts
 ```
 
 #### 2. Install Git (if not already installed)
+
 ```powershell
 winget install Git.Git
 ```
@@ -125,11 +133,13 @@ winget install Rustlang.Rustup
 #### 1. Install Node.js
 
 **Option A: Using Homebrew (recommended)**
+
 ```bash
 brew install node@20
 ```
 
 **Option B: Download from website**
+
 - Visit https://nodejs.org/
 - Download the macOS LTS installer
 
@@ -158,6 +168,7 @@ source $HOME/.cargo/env
 #### 1. Install Node.js
 
 **Ubuntu/Debian:**
+
 ```bash
 # Using NodeSource repository
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
@@ -169,6 +180,7 @@ npm --version
 ```
 
 **CentOS/RHEL/Fedora:**
+
 ```bash
 # Using NodeSource repository
 curl -fsSL https://rpm.nodesource.com/setup_20.x | sudo bash -
@@ -179,6 +191,7 @@ sudo dnf install -y nodejs
 ```
 
 **Arch Linux:**
+
 ```bash
 sudo pacman -S nodejs npm
 ```
@@ -208,11 +221,13 @@ source $HOME/.cargo/env
 On some Linux distributions, you may need additional system packages for OCR:
 
 **Ubuntu/Debian:**
+
 ```bash
 sudo apt-get install -y tesseract-ocr libtesseract-dev
 ```
 
 **CentOS/RHEL/Fedora:**
+
 ```bash
 sudo yum install -y tesseract tesseract-devel
 # Or on Fedora
@@ -221,12 +236,14 @@ sudo dnf install -y tesseract tesseract-devel
 
 ## Docker Setup
 
-Docker provides a consistent environment across all platforms without needing to install Node.js or Ollama locally.
+Docker provides a consistent environment across all platforms without needing to
+install Node.js or Ollama locally.
 
 ### Prerequisites
 
 - [Docker](https://docs.docker.com/get-docker/)
-- [Docker Compose](https://docs.docker.com/compose/install/) (usually included with Docker Desktop)
+- [Docker Compose](https://docs.docker.com/compose/install/) (usually included
+  with Docker Desktop)
 
 ### Quick Start with Docker
 
@@ -242,8 +259,10 @@ docker-compose down
 ```
 
 The application will be available at:
+
 - AI Service: http://localhost:3001
-- Web App: Not included in Docker by default (run locally with `npm run dev:web`)
+- Web App: Not included in Docker by default (run locally with
+  `npm run dev:web`)
 
 ### Docker Commands
 
@@ -269,11 +288,13 @@ docker-compose down -v
 
 ## Ollama Setup (Optional)
 
-Ollama provides AI-enhanced text extraction. The app works without it using OCR-only mode.
+Ollama provides AI-enhanced text extraction. The app works without it using
+OCR-only mode.
 
 ### Install Ollama
 
 **Windows:**
+
 ```powershell
 # Using winget
 winget install Ollama.Ollama
@@ -282,6 +303,7 @@ winget install Ollama.Ollama
 ```
 
 **macOS:**
+
 ```bash
 # Using Homebrew
 brew install ollama
@@ -290,6 +312,7 @@ brew install ollama
 ```
 
 **Linux:**
+
 ```bash
 # Automated install
 curl -fsSL https://ollama.com/install.sh | sh
@@ -298,11 +321,13 @@ curl -fsSL https://ollama.com/install.sh | sh
 ### Setup Recommended Model
 
 **Automated (all platforms):**
+
 ```bash
 npm run setup:ollama
 ```
 
 **Manual:**
+
 ```bash
 # Pull the recommended model (~2.3GB)
 ollama pull qwen3:4b-q4_K_M
@@ -323,23 +348,25 @@ npm run verify
 
 ### Model Options
 
-| Model | Size | VRAM | Speed | Quality |
-|-------|------|------|-------|---------|
-| `qwen2.5:0.5b` | ~300MB | ~1GB | ⚡⚡⚡⚡⚡ | ⭐⭐ |
-| `qwen3:4b-q4_K_M` | ~2.3GB | ~3GB | ⚡⚡⚡ | ⭐⭐⭐⭐ |
-| `qwen3:4b-q8_0` | ~3.5GB | ~4GB | ⚡⚡ | ⭐⭐⭐⭐⭐ |
-| `llama3.2:3b` | ~2GB | ~3GB | ⚡⚡⚡ | ⭐⭐⭐ |
+| Model             | Size   | VRAM | Speed      | Quality    |
+| ----------------- | ------ | ---- | ---------- | ---------- |
+| `qwen2.5:0.5b`    | ~300MB | ~1GB | ⚡⚡⚡⚡⚡ | ⭐⭐       |
+| `qwen3:4b-q4_K_M` | ~2.3GB | ~3GB | ⚡⚡⚡     | ⭐⭐⭐⭐   |
+| `qwen3:4b-q8_0`   | ~3.5GB | ~4GB | ⚡⚡       | ⭐⭐⭐⭐⭐ |
+| `llama3.2:3b`     | ~2GB   | ~3GB | ⚡⚡⚡     | ⭐⭐⭐     |
 
 ## Running the Application
 
 ### Development Mode (Web)
 
 **Terminal 1 - Start AI Service:**
+
 ```bash
 npm run dev:service
 ```
 
 **Terminal 2 - Start Web App:**
+
 ```bash
 npm run dev:web
 ```
@@ -380,6 +407,7 @@ make build-desktop
 ### Port 3001 Already in Use
 
 **Windows:**
+
 ```powershell
 # Find the process
 Get-Process -Id (Get-NetTCPConnection -LocalPort 3001).OwningProcess
@@ -389,6 +417,7 @@ Stop-Process -Id <PID>
 ```
 
 **macOS/Linux:**
+
 ```bash
 # Find and kill the process
 lsof -ti:3001 | xargs kill -9
@@ -399,6 +428,7 @@ fuser -k 3001/tcp
 ### Node.js Version Issues
 
 **Windows:**
+
 ```powershell
 # Using nvm-windows
 nvm install 20
@@ -406,6 +436,7 @@ nvm use 20
 ```
 
 **macOS/Linux:**
+
 ```bash
 # Using nvm
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
@@ -415,7 +446,8 @@ nvm use 20
 
 ### Ollama Timeouts
 
-The app automatically disables LLM after the first timeout and uses OCR-only mode. To manually disable:
+The app automatically disables LLM after the first timeout and uses OCR-only
+mode. To manually disable:
 
 ```bash
 # In your .env file or terminal
@@ -463,10 +495,11 @@ docker-compose up -d
 
 After successful setup:
 
-1. **Read the Quick Start:** See [QUICKSTART.md](QUICKSTART.md) for usage instructions
+1. **Read the Quick Start:** See [QUICKSTART.md](QUICKSTART.md) for usage
+   instructions
 2. **Explore Documentation:** Check the `docs/` folder for detailed guides
 3. **Run Tests:** Verify everything works with `npm test`
-4. **Try the App:** 
+4. **Try the App:**
    - Import a PDF or image of caregiver notes
    - Review and edit extracted fields
    - Export as PDF
@@ -475,6 +508,7 @@ After successful setup:
 
 If you encounter issues:
 
-1. Check [docs/ollama-troubleshooting.md](docs/ollama-troubleshooting.md) for Ollama issues
+1. Check [docs/ollama-troubleshooting.md](docs/ollama-troubleshooting.md) for
+   Ollama issues
 2. Review [docs/development.md](docs/development.md) for development details
 3. Run `npm run verify` to check your setup

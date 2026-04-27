@@ -1,6 +1,7 @@
 # Running Tests
 
-Quick reference for running the test suites in this monorepo. Tests are written with **Vitest** and live in two packages:
+Quick reference for running the test suites in this monorepo. Tests are written
+with **Vitest** and live in two packages:
 
 - `services/local-ai/src/__tests__/` — backend (Express, OCR, LLM pipeline)
 - `packages/shared/src/__tests__/` — shared schemas and utilities
@@ -54,7 +55,8 @@ npx vitest run src/__tests__/schema.test.ts
 
 ## Speeding up LLM tests
 
-LLM integration tests hit Ollama and have a **5-minute timeout per test**. For fast iteration:
+LLM integration tests hit Ollama and have a **5-minute timeout per test**. For
+fast iteration:
 
 ```bash
 # Skip LLM entirely — uses rule-based fallbacks
@@ -64,7 +66,8 @@ DISABLE_LLM=true npm run -w services/local-ai test
 $env:DISABLE_LLM="true"; npm run -w services/local-ai test
 ```
 
-See [fast-testing.md](fast-testing.md) for using tiny Ollama models (e.g. `qwen2.5:0.5b`) to keep LLM tests on but fast.
+See [fast-testing.md](fast-testing.md) for using tiny Ollama models (e.g.
+`qwen2.5:0.5b`) to keep LLM tests on but fast.
 
 ## Coverage
 
@@ -94,6 +97,11 @@ npm run format          # Prettier (write)
 
 ## Troubleshooting
 
-- **Integration tests hang or time out** → Ollama likely isn't running or the configured model isn't pulled. Check `curl http://localhost:11434/api/tags`, or set `DISABLE_LLM=true`.
-- **`Cannot find module '@ara/shared'`** → Run `npm run -w packages/shared build` first; the service imports the compiled `dist/`.
-- **Vitest can't find tests** → Make sure you're running from the correct workspace root; test files must match `**/*.test.ts`.
+- **Integration tests hang or time out** → Ollama likely isn't running or the
+  configured model isn't pulled. Check `curl http://localhost:11434/api/tags`,
+  or set `DISABLE_LLM=true`.
+- **`Cannot find module '@ara/shared'`** → Run
+  `npm run -w packages/shared build` first; the service imports the compiled
+  `dist/`.
+- **Vitest can't find tests** → Make sure you're running from the correct
+  workspace root; test files must match `**/*.test.ts`.

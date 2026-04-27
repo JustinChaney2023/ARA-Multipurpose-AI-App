@@ -31,7 +31,9 @@ export const getModelOptions = (isVision: boolean = false) => ({
 });
 
 // Check if model is available in Ollama
-export async function checkModelAvailable(modelName: string = config.ollama.model): Promise<boolean> {
+export async function checkModelAvailable(
+  modelName: string = config.ollama.model
+): Promise<boolean> {
   try {
     const response = await fetch(`${config.ollama.baseUrl}/api/tags`, {
       method: 'GET',
@@ -44,10 +46,7 @@ export async function checkModelAvailable(modelName: string = config.ollama.mode
     const data = await response.json();
     const models = data.models?.map((m: { name: string }) => m.name) || [];
 
-    return models.some((m: string) =>
-      m === modelName ||
-      m.startsWith(modelName.split(':')[0])
-    );
+    return models.some((m: string) => m === modelName || m.startsWith(modelName.split(':')[0]));
   } catch {
     return false;
   }

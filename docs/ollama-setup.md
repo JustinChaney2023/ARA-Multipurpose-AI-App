@@ -1,6 +1,7 @@
 # Ollama Setup Guide
 
-Ollama provides local LLM capabilities for intelligent form extraction. Without it, the app works in **OCR-only mode**.
+Ollama provides local LLM capabilities for intelligent form extraction. Without
+it, the app works in **OCR-only mode**.
 
 ## What Ollama Does
 
@@ -42,6 +43,7 @@ ollama pull qwen:4b
 ```
 
 This downloads ~2.3GB. Other models that work well:
+
 - `qwen2.5:3b` - Smaller, faster
 - `phi3:mini` - Microsoft's model
 - `llama3.2:3b` - Meta's model
@@ -60,13 +62,15 @@ curl http://localhost:11434/api/tags
 ```
 
 You should see:
+
 ```json
 {"models":[{"name":"qwen:4b","model":"qwen:4b",...}]}
 ```
 
 ## Configure the App
 
-The app auto-detects Ollama. To use a different model, set an environment variable:
+The app auto-detects Ollama. To use a different model, set an environment
+variable:
 
 ```bash
 # Windows PowerShell
@@ -86,6 +90,7 @@ OLLAMA_MODEL=qwen2.5:3b
 ## Troubleshooting
 
 ### Ollama not detected
+
 ```bash
 # Check if running
 Get-Process ollama  # Windows
@@ -96,6 +101,7 @@ ollama serve
 ```
 
 ### Model download fails
+
 ```bash
 # Try alternative model
 ollama pull qwen2.5:3b
@@ -105,6 +111,7 @@ ollama pull phi3:mini
 ```
 
 ### Out of memory
+
 ```bash
 # Use a smaller model
 ollama pull qwen2.5:1.8b
@@ -112,4 +119,5 @@ ollama pull qwen2.5:1.8b
 
 ## Disable Ollama (OCR-only mode)
 
-Simply don't install/start Ollama. The app automatically falls back to pattern matching.
+Simply don't install/start Ollama. The app automatically falls back to pattern
+matching.

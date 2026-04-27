@@ -12,7 +12,7 @@ services:
     container_name: ara-local-ai
     restart: unless-stopped
     ports:
-      - "3001:3001"
+      - '3001:3001'
     environment:
       - NODE_ENV=production
       - PORT=3001
@@ -29,7 +29,7 @@ services:
     depends_on:
       - ollama
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:3001/health']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -43,7 +43,7 @@ services:
     container_name: ara-ollama
     restart: unless-stopped
     ports:
-      - "11434:11434"
+      - '11434:11434'
     volumes:
       - ollama-data:/root/.ollama
     networks:
@@ -74,7 +74,7 @@ services:
       - ara-network
     depends_on:
       - ollama
-    restart: "no"
+    restart: 'no'
 
   # ==========================================================================
   # Frontend (Desktop/Web) - Development only

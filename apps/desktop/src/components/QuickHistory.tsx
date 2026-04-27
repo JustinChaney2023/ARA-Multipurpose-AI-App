@@ -63,17 +63,31 @@ export function QuickHistory({ onSelect }: QuickHistoryProps) {
                 opacity: item.result ? 1 : 0.6,
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+              >
                 <strong>{item.recipientName}</strong>
                 <span style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem' }}>
                   {formatRelativeTime(item.timestamp)}
                 </span>
               </div>
-              <div style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem', marginTop: '0.25rem' }}>
+              <div
+                style={{
+                  color: 'var(--color-text-muted)',
+                  fontSize: '0.75rem',
+                  marginTop: '0.25rem',
+                }}
+              >
                 {item.date}
               </div>
               {!item.result && (
-                <div style={{ color: 'var(--color-text-muted)', fontSize: '0.7rem', marginTop: '0.25rem' }}>
+                <div
+                  style={{
+                    color: 'var(--color-text-muted)',
+                    fontSize: '0.7rem',
+                    marginTop: '0.25rem',
+                  }}
+                >
                   Restore unavailable for older entries
                 </div>
               )}

@@ -33,21 +33,37 @@ export async function fillPDFForm(
   templateVersion: string
 ): Promise<Buffer> {
   logger.info('Starting PDF export', { templateVersion, recipient: form.header.recipientName });
-  
+
   // Load template
-  const templatePath = path.join(__dirname, '..', '..', '..', 'templates', templateVersion, 'template.pdf');
-  const mappingPath = path.join(__dirname, '..', '..', '..', 'templates', templateVersion, 'mapping.json');
-  
+  const templatePath = path.join(
+    __dirname,
+    '..',
+    '..',
+    '..',
+    'templates',
+    templateVersion,
+    'template.pdf'
+  );
+  const mappingPath = path.join(
+    __dirname,
+    '..',
+    '..',
+    '..',
+    'templates',
+    templateVersion,
+    'mapping.json'
+  );
+
   let templateBytes: Buffer;
   let mapping: TemplateMapping;
-  
+
   try {
     templateBytes = await fs.readFile(templatePath);
     logger.debug('Template PDF loaded', { size: templateBytes.length });
   } catch {
     throw new Error(`Template PDF not found: ${templatePath}`);
   }
-  
+
   try {
     const mappingContent = await fs.readFile(mappingPath, 'utf-8');
     mapping = JSON.parse(mappingContent);
@@ -63,11 +79,11 @@ export async function fillPDFForm(
   // Fill fields based on mapping
   let filledCount = 0;
   let errorCount = 0;
-  
+
   for (const [formPath, fieldMapping] of Object.entries(mapping.fields)) {
     const value = getValueAtPath(form, formPath);
     const textValue = value === undefined || value === null ? '' : String(value);
-    
+
     try {
       if (fieldMapping.type === 'checkbox') {
         const checkbox = pdfForm.getCheckBox(fieldMapping.pdfField);
@@ -97,7 +113,7 @@ export async function fillPDFForm(
   // Save PDF
   const pdfBytes = await pdfDoc.save();
   logger.info('PDF export complete', { size: pdfBytes.length });
-  
+
   return Buffer.from(pdfBytes);
 }
 
@@ -108,13 +124,13 @@ export async function fillPDFForm(
 function getValueAtPath(obj: unknown, path: string): unknown {
   const parts = path.split('.');
   let current: unknown = obj;
-  
+
   for (const part of parts) {
     if (current === null || current === undefined) {
       return undefined;
     }
     current = (current as Record<string, unknown>)[part];
   }
-  
+
   return current;
 }

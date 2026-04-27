@@ -6,7 +6,13 @@ import { PDFPreview } from '../components/PDFPreview';
 import { QuickHistory } from '../components/QuickHistory';
 import { useKeyboardShortcuts, SHORTCUTS } from '../hooks/useKeyboardShortcuts';
 import { useUndoRedo } from '../hooks/useUndoRedo';
-import { validateForm, autoFormatDate, autoFormatTime, applySmartDefaults, type ValidationState } from '../utils/formValidation';
+import {
+  validateForm,
+  autoFormatDate,
+  autoFormatTime,
+  applySmartDefaults,
+  type ValidationState,
+} from '../utils/formValidation';
 import { saveToQuickHistory } from '../utils/quickHistory';
 
 import type { SummaryPayload } from './SummaryScreen';
@@ -59,7 +65,16 @@ function ValidationIndicator({ field, validation }: ValidationIndicatorProps) {
   const error = validation.errors.find(e => e.field === field);
   if (error) {
     return (
-      <span style={{ color: '#dc2626', fontSize: '0.75rem', marginLeft: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+      <span
+        style={{
+          color: '#dc2626',
+          fontSize: '0.75rem',
+          marginLeft: '0.5rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.25rem',
+        }}
+      >
         <Icon name="cross" size={12} color="#dc2626" /> {error.message}
       </span>
     );
@@ -67,7 +82,16 @@ function ValidationIndicator({ field, validation }: ValidationIndicatorProps) {
   const warning = validation.warnings.find(w => w.field === field);
   if (warning) {
     return (
-      <span style={{ color: '#f59e0b', fontSize: '0.75rem', marginLeft: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+      <span
+        style={{
+          color: '#f59e0b',
+          fontSize: '0.75rem',
+          marginLeft: '0.5rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.25rem',
+        }}
+      >
         <Icon name="warning" size={12} color="#f59e0b" /> {warning.message}
       </span>
     );
@@ -79,27 +103,45 @@ function cloneExtractionResult(value: ExtractionResult): ExtractionResult {
   return JSON.parse(JSON.stringify(value)) as ExtractionResult;
 }
 
-export function ReviewScreen({ result: initialResult, onBack, onNewForm, onSummarized, selectedPatientId }: ReviewScreenProps) {
+export function ReviewScreen({
+  result: initialResult,
+  onBack,
+  onNewForm,
+  onSummarized,
+  selectedPatientId,
+}: ReviewScreenProps) {
   // Undo/Redo state management
-  const { state: result, set: setResult, undo, redo, canUndo, canRedo, reset } = useUndoRedo(initialResult);
+  const {
+    state: result,
+    set: setResult,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+    reset,
+  } = useUndoRedo(initialResult);
   const [showUndoIndicator, setShowUndoIndicator] = useState(false);
-  
+
   // UI State
   const [isExporting, setIsExporting] = useState(false);
   const [exportSuccess, setExportSuccess] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
-  const [validation, setValidation] = useState<ValidationState>({ valid: true, errors: [], warnings: [] });
+  const [validation, setValidation] = useState<ValidationState>({
+    valid: true,
+    errors: [],
+    warnings: [],
+  });
   const [isValidating, setIsValidating] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [historyKey, setHistoryKey] = useState(0);
   const [autoFixMessage, setAutoFixMessage] = useState<string | null>(null);
-  
+
   // Apply smart defaults and normalize dates on first load
   useEffect(() => {
     const normalizeDates = async () => {
       const updates: Partial<typeof form> = {};
       let fixedCount = 0;
-      
+
       // Normalize header dates
       if (form.header.date) {
         const normalizedDate = await autoFormatDate(form.header.date);
@@ -122,29 +164,29 @@ export function ReviewScreen({ result: initialResult, onBack, onNewForm, onSumma
           fixedCount++;
         }
       }
-      
+
       // Show auto-fix message if dates were corrected
       if (fixedCount > 0) {
         setAutoFixMessage(`Auto-corrected ${fixedCount} date${fixedCount > 1 ? 's' : ''}`);
         setTimeout(() => setAutoFixMessage(null), 3000);
       }
-      
+
       // Apply defaults
       const defaults = applySmartDefaults({ ...form, ...updates } as typeof form);
-      
+
       // Merge all updates
       const finalUpdates = { ...updates, ...defaults };
       if (Object.keys(finalUpdates).length > 0) {
         updateFormWithDefaults(finalUpdates);
       }
-      
+
       // Initial validation
       validateCurrentForm();
     };
-    
+
     normalizeDates();
   }, []);
-  
+
   // Validate on form changes (debounced)
   const validationTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => {
@@ -184,7 +226,11 @@ export function ReviewScreen({ result: initialResult, onBack, onNewForm, onSumma
   };
 
   // Auto-format date/time on blur with immediate validation
-  const handleDateBlur = async (value: string, field: string, section: 'header' | 'signature' = 'header') => {
+  const handleDateBlur = async (
+    value: string,
+    field: string,
+    section: 'header' | 'signature' = 'header'
+  ) => {
     const formatted = await autoFormatDate(value);
     if (formatted !== value && formatted) {
       updateField(section, field, formatted);
@@ -295,7 +341,8 @@ export function ReviewScreen({ result: initialResult, onBack, onNewForm, onSumma
     if (form.header.time) parts.push(`Time: ${form.header.time}`);
     if (form.header.location) parts.push(`Location: ${form.header.location}`);
     if (form.careCoordinationType.sih) parts.push('Service: Senior In-Home (SIH)');
-    if (form.careCoordinationType.hcbw) parts.push('Service: Home and Community-Based Waiver (HCBW)');
+    if (form.careCoordinationType.hcbw)
+      parts.push('Service: Home and Community-Based Waiver (HCBW)');
     if (parts.length > 0) parts.push('');
 
     if (form.narrative.recipientAndVisitObservations.trim()) {
@@ -371,10 +418,10 @@ export function ReviewScreen({ result: initialResult, onBack, onNewForm, onSumma
     <div className="screen">
       {/* PDF Preview Modal */}
       <PDFPreview form={form} isOpen={showPreview} onClose={() => setShowPreview(false)} />
-      
+
       {/* Reset Confirmation */}
       {showResetConfirm && (
-        <div 
+        <div
           style={{
             position: 'fixed',
             inset: 0,
@@ -386,7 +433,7 @@ export function ReviewScreen({ result: initialResult, onBack, onNewForm, onSumma
           }}
           onClick={() => setShowResetConfirm(false)}
         >
-          <div 
+          <div
             className="card"
             style={{ maxWidth: '400px', margin: '1rem' }}
             onClick={e => e.stopPropagation()}
@@ -399,7 +446,11 @@ export function ReviewScreen({ result: initialResult, onBack, onNewForm, onSumma
               <button className="btn btn-secondary" onClick={() => setShowResetConfirm(false)}>
                 Cancel
               </button>
-              <button className="btn btn-primary" onClick={handleReset} style={{ background: '#dc2626' }}>
+              <button
+                className="btn btn-primary"
+                onClick={handleReset}
+                style={{ background: '#dc2626' }}
+              >
                 Reset Form
               </button>
             </div>
@@ -408,11 +459,13 @@ export function ReviewScreen({ result: initialResult, onBack, onNewForm, onSumma
       )}
 
       {/* Quick History */}
-      <QuickHistory 
+      <QuickHistory
         key={historyKey}
-        onSelect={(item) => {
+        onSelect={item => {
           if (!item.result) {
-            setAutoFixMessage('This history item cannot be restored because it was saved before restore support was added.');
+            setAutoFixMessage(
+              'This history item cannot be restored because it was saved before restore support was added.'
+            );
             setTimeout(() => setAutoFixMessage(null), 3000);
             return;
           }
@@ -424,26 +477,33 @@ export function ReviewScreen({ result: initialResult, onBack, onNewForm, onSumma
       />
 
       {/* Header with actions */}
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center',
-        marginBottom: '1.5rem',
-        flexWrap: 'wrap',
-        gap: '1rem',
-      }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '1.5rem',
+          flexWrap: 'wrap',
+          gap: '1rem',
+        }}
+      >
         <div>
           <h2 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Review Form</h2>
           <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem', margin: 0 }}>
-            {completionPercent}% complete • {isValidating ? 'Validating...' : validation.valid ? 'Ready to export' : 'Fix errors to export'}
+            {completionPercent}% complete •{' '}
+            {isValidating
+              ? 'Validating...'
+              : validation.valid
+                ? 'Ready to export'
+                : 'Fix errors to export'}
           </p>
         </div>
-        
+
         {/* Toolbar */}
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           {/* Undo/Redo */}
-          <button 
-            className="btn btn-secondary" 
+          <button
+            className="btn btn-secondary"
             onClick={handleUndo}
             disabled={!canUndo}
             title="Undo (Ctrl+Z)"
@@ -451,8 +511,8 @@ export function ReviewScreen({ result: initialResult, onBack, onNewForm, onSumma
           >
             ↩ Undo
           </button>
-          <button 
-            className="btn btn-secondary" 
+          <button
+            className="btn btn-secondary"
             onClick={handleRedo}
             disabled={!canRedo}
             title="Redo (Ctrl+Y)"
@@ -460,26 +520,23 @@ export function ReviewScreen({ result: initialResult, onBack, onNewForm, onSumma
           >
             ↪ Redo
           </button>
-          
+
           {/* Reset */}
-          <button 
-            className="btn btn-secondary" 
+          <button
+            className="btn btn-secondary"
             onClick={() => setShowResetConfirm(true)}
             title="Reset to AI extraction"
             style={{ padding: '0.5rem 0.75rem' }}
           >
             ↺ Reset
           </button>
-          
+
           <div style={{ width: 1, background: 'var(--color-border)', margin: '0 0.25rem' }} />
-          
+
           <button className="btn btn-secondary" onClick={onBack}>
             ← Back
           </button>
-          <button 
-            className="btn btn-secondary" 
-            onClick={() => setShowPreview(true)}
-          >
+          <button className="btn btn-secondary" onClick={() => setShowPreview(true)}>
             <Icon name="eye" size={16} /> Preview
           </button>
         </div>
@@ -488,7 +545,17 @@ export function ReviewScreen({ result: initialResult, onBack, onNewForm, onSumma
       {/* Validation Summary */}
       {!validation.valid && (
         <div className="card" style={{ background: '#fef2f2', borderColor: '#fecaca' }}>
-          <h4 style={{ color: '#dc2626', margin: '0 0 0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Icon name="warning" size={18} color="#dc2626" /> Required Fields Missing</h4>
+          <h4
+            style={{
+              color: '#dc2626',
+              margin: '0 0 0.5rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+            }}
+          >
+            <Icon name="warning" size={18} color="#dc2626" /> Required Fields Missing
+          </h4>
           <ul style={{ margin: 0, paddingLeft: '1.25rem', color: '#991b1b' }}>
             {validation.errors.map(e => (
               <li key={e.field}>{e.message}</li>
@@ -500,14 +567,32 @@ export function ReviewScreen({ result: initialResult, onBack, onNewForm, onSumma
       {/* Success message */}
       {exportSuccess && (
         <div className="card" style={{ background: '#dcfce7', borderColor: '#86efac' }}>
-          <p style={{ color: '#166534', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Icon name="check" size={16} color="#166534" /> PDF exported successfully!</p>
+          <p
+            style={{
+              color: '#166534',
+              margin: 0,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+            }}
+          >
+            <Icon name="check" size={16} color="#166534" /> PDF exported successfully!
+          </p>
         </div>
       )}
 
       {/* Auto-fix indicator */}
       {autoFixMessage && (
         <div className="card" style={{ background: '#eff6ff', borderColor: '#bfdbfe' }}>
-          <p style={{ color: '#1e40af', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <p
+            style={{
+              color: '#1e40af',
+              margin: 0,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+            }}
+          >
             {autoFixMessage}
           </p>
         </div>
@@ -515,25 +600,35 @@ export function ReviewScreen({ result: initialResult, onBack, onNewForm, onSumma
 
       {/* Undo indicator */}
       {showUndoIndicator && (
-        <div style={{
-          position: 'fixed',
-          bottom: '1rem',
-          right: '1rem',
-          background: '#1e293b',
-          color: 'white',
-          padding: '0.5rem 1rem',
-          borderRadius: '6px',
-          fontSize: '0.875rem',
-          zIndex: 100,
-          animation: 'fadeIn 0.2s',
-        }}>
+        <div
+          style={{
+            position: 'fixed',
+            bottom: '1rem',
+            right: '1rem',
+            background: '#1e293b',
+            color: 'white',
+            padding: '0.5rem 1rem',
+            borderRadius: '6px',
+            fontSize: '0.875rem',
+            zIndex: 100,
+            animation: 'fadeIn 0.2s',
+          }}
+        >
           Undone
         </div>
       )}
 
       {/* Header Section */}
       <section className="card">
-        <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem', display: 'flex', alignItems: 'center' }}>
+        <h3
+          style={{
+            fontSize: '1rem',
+            fontWeight: 600,
+            marginBottom: '1rem',
+            display: 'flex',
+            alignItems: 'center',
+          }}
+        >
           Client Information
           <ConfidenceDot field="header.recipientName" confidenceMap={confidenceMap} />
         </h3>
@@ -549,10 +644,14 @@ export function ReviewScreen({ result: initialResult, onBack, onNewForm, onSumma
               value={form.header.recipientName}
               onChange={e => updateField('header', 'recipientName', e.target.value)}
               placeholder="Client name"
-              style={{ borderColor: validation.errors.find(e => e.field === 'header.recipientName') ? '#dc2626' : undefined }}
+              style={{
+                borderColor: validation.errors.find(e => e.field === 'header.recipientName')
+                  ? '#dc2626'
+                  : undefined,
+              }}
             />
           </div>
-          
+
           <div className="form-group" data-field="header.date">
             <label className="form-label">
               Date
@@ -565,13 +664,17 @@ export function ReviewScreen({ result: initialResult, onBack, onNewForm, onSumma
               onChange={e => handleDateChange(e.target.value, 'date')}
               onBlur={e => handleDateBlur(e.target.value, 'date')}
               placeholder="MM/DD/YYYY or 2024-03-15"
-              style={{ borderColor: validation.errors.find(e => e.field === 'header.date') ? '#dc2626' : undefined }}
+              style={{
+                borderColor: validation.errors.find(e => e.field === 'header.date')
+                  ? '#dc2626'
+                  : undefined,
+              }}
             />
             <small style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem' }}>
               Auto-corrects any format → MM/DD/YYYY
             </small>
           </div>
-          
+
           <div className="form-group">
             <label className="form-label">Time</label>
             <input
@@ -583,7 +686,7 @@ export function ReviewScreen({ result: initialResult, onBack, onNewForm, onSumma
               placeholder="HH:MM"
             />
           </div>
-          
+
           <div className="form-group">
             <label className="form-label">ID Number</label>
             <input
@@ -594,7 +697,7 @@ export function ReviewScreen({ result: initialResult, onBack, onNewForm, onSumma
               placeholder="Client ID"
             />
           </div>
-          
+
           <div className="form-group">
             <label className="form-label">Date of Birth</label>
             <input
@@ -606,7 +709,7 @@ export function ReviewScreen({ result: initialResult, onBack, onNewForm, onSumma
               placeholder="MM/DD/YYYY or 1950-01-15"
             />
           </div>
-          
+
           <div className="form-group">
             <label className="form-label">Location</label>
             <input
@@ -622,19 +725,25 @@ export function ReviewScreen({ result: initialResult, onBack, onNewForm, onSumma
 
       {/* Care Type */}
       <section className="card">
-        <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem' }}>Care Coordination Type</h3>
+        <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem' }}>
+          Care Coordination Type
+        </h3>
         <div style={{ display: 'flex', gap: '1.5rem' }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-            <input 
-              type="checkbox" 
+          <label
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}
+          >
+            <input
+              type="checkbox"
               checked={form.careCoordinationType.sih}
               onChange={e => updateField('careCoordinationType', 'sih', e.target.checked)}
             />
             SIH (Senior In-Home)
           </label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-            <input 
-              type="checkbox" 
+          <label
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}
+          >
+            <input
+              type="checkbox"
               checked={form.careCoordinationType.hcbw}
               onChange={e => updateField('careCoordinationType', 'hcbw', e.target.checked)}
             />
@@ -645,15 +754,47 @@ export function ReviewScreen({ result: initialResult, onBack, onNewForm, onSumma
 
       {/* Narrative Sections */}
       {[
-        { key: 'recipientAndVisitObservations', title: 'Recipient & Visit Observations', field: 'narrative.recipientAndVisitObservations' as FieldPath },
-        { key: 'healthEmotionalStatus', title: 'Health/Emotional Status', field: 'narrative.healthEmotionalStatus' as FieldPath },
-        { key: 'reviewOfServices', title: 'Review of Services', field: 'narrative.reviewOfServices' as FieldPath },
-        { key: 'progressTowardGoals', title: 'Progress Toward Goals', field: 'narrative.progressTowardGoals' as FieldPath },
-        { key: 'followUpTasks', title: 'Follow Up Tasks', field: 'narrative.followUpTasks' as FieldPath },
-        { key: 'additionalNotes', title: 'Additional Notes', field: 'narrative.additionalNotes' as FieldPath },
+        {
+          key: 'recipientAndVisitObservations',
+          title: 'Recipient & Visit Observations',
+          field: 'narrative.recipientAndVisitObservations' as FieldPath,
+        },
+        {
+          key: 'healthEmotionalStatus',
+          title: 'Health/Emotional Status',
+          field: 'narrative.healthEmotionalStatus' as FieldPath,
+        },
+        {
+          key: 'reviewOfServices',
+          title: 'Review of Services',
+          field: 'narrative.reviewOfServices' as FieldPath,
+        },
+        {
+          key: 'progressTowardGoals',
+          title: 'Progress Toward Goals',
+          field: 'narrative.progressTowardGoals' as FieldPath,
+        },
+        {
+          key: 'followUpTasks',
+          title: 'Follow Up Tasks',
+          field: 'narrative.followUpTasks' as FieldPath,
+        },
+        {
+          key: 'additionalNotes',
+          title: 'Additional Notes',
+          field: 'narrative.additionalNotes' as FieldPath,
+        },
       ].map(({ key, title, field }) => (
         <section key={key} className="card" data-field={field}>
-          <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.75rem', display: 'flex', alignItems: 'center' }}>
+          <h3
+            style={{
+              fontSize: '1rem',
+              fontWeight: 600,
+              marginBottom: '0.75rem',
+              display: 'flex',
+              alignItems: 'center',
+            }}
+          >
             {title}
             <ConfidenceDot field={field} confidenceMap={confidenceMap} />
             <ValidationIndicator field={field} validation={validation} />
@@ -664,7 +805,9 @@ export function ReviewScreen({ result: initialResult, onBack, onNewForm, onSumma
             onChange={e => updateField('narrative', key, e.target.value)}
             rows={4}
             placeholder={`Enter ${title.toLowerCase()}...`}
-            style={{ borderColor: validation.warnings.find(w => w.field === field) ? '#f59e0b' : undefined }}
+            style={{
+              borderColor: validation.warnings.find(w => w.field === field) ? '#f59e0b' : undefined,
+            }}
           />
         </section>
       ))}
@@ -698,14 +841,16 @@ export function ReviewScreen({ result: initialResult, onBack, onNewForm, onSumma
       </section>
 
       {/* Bottom Actions */}
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: '1rem 0',
-        borderTop: '1px solid var(--color-border)',
-        marginTop: '1rem',
-      }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: '1rem 0',
+          borderTop: '1px solid var(--color-border)',
+          marginTop: '1rem',
+        }}
+      >
         <button className="btn btn-secondary" onClick={onNewForm}>
           <Icon name="plus" size={16} /> New Form
         </button>
@@ -716,21 +861,32 @@ export function ReviewScreen({ result: initialResult, onBack, onNewForm, onSumma
             disabled={isGeneratingSummary}
             title="Generate a clean summary from the form data"
           >
-            {isGeneratingSummary ? 'Generating...' : <><Icon name="robot" size={16} /> Generate Summary</>}
+            {isGeneratingSummary ? (
+              'Generating...'
+            ) : (
+              <>
+                <Icon name="robot" size={16} /> Generate Summary
+              </>
+            )}
           </button>
-          <button 
-            className="btn btn-secondary" 
-            onClick={() => setShowPreview(true)}
-          >
+          <button className="btn btn-secondary" onClick={() => setShowPreview(true)}>
             <Icon name="eye" size={16} /> Preview
           </button>
-          <button 
-            className="btn btn-primary" 
+          <button
+            className="btn btn-primary"
             onClick={handleExportPDF}
             disabled={isExporting || !validation.valid}
             style={{ minWidth: '150px' }}
           >
-            {isExporting ? 'Exporting...' : !validation.valid ? 'Fix Errors to Export' : <><Icon name="document" size={16} /> Export PDF</>}
+            {isExporting ? (
+              'Exporting...'
+            ) : !validation.valid ? (
+              'Fix Errors to Export'
+            ) : (
+              <>
+                <Icon name="document" size={16} /> Export PDF
+              </>
+            )}
           </button>
         </div>
       </div>

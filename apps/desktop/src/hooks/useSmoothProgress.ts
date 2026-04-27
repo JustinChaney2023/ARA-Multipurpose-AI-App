@@ -21,7 +21,7 @@ export function useSmoothProgress(targetValue: number, options: UseSmoothProgres
     const startValue = displayValue;
     const endValue = Math.min(Math.max(targetValue, 0), 100);
     const change = endValue - startValue;
-    
+
     // If no change needed, skip animation
     if (change === 0) return;
 
@@ -46,15 +46,16 @@ export function useSmoothProgress(targetValue: number, options: UseSmoothProgres
           easedProgress = 1 - Math.pow(1 - progress, 3);
           break;
         case 'easeInOut':
-          easedProgress = progress < 0.5 
-            ? 4 * progress * progress * progress 
-            : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+          easedProgress =
+            progress < 0.5
+              ? 4 * progress * progress * progress
+              : 1 - Math.pow(-2 * progress + 2, 3) / 2;
           break;
         default:
           easedProgress = progress;
       }
 
-      const currentValue = startValueRef.current + (change * easedProgress);
+      const currentValue = startValueRef.current + change * easedProgress;
       setDisplayValue(currentValue);
 
       if (progress < 1) {

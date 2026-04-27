@@ -21,13 +21,12 @@ export const ExtractFillSchema = z.object({
   rawText: z.string().min(1, 'Text is required').max(50000, 'Text too long (max 50KB)'),
 });
 
-
 // Helper to normalize dates in form data
 function normalizeFormDates(form: any): any {
   if (!form || typeof form !== 'object') return form;
-  
+
   const normalized = { ...form };
-  
+
   // Normalize header dates
   if (normalized.header) {
     normalized.header = { ...normalized.header };
@@ -41,13 +40,13 @@ function normalizeFormDates(form: any): any {
       normalized.header.time = DateTimeUtils.normalizeTime(normalized.header.time);
     }
   }
-  
+
   // Normalize signature date
   if (normalized.signature?.dateSigned) {
     normalized.signature = { ...normalized.signature };
     normalized.signature.dateSigned = DateTimeUtils.normalizeDate(normalized.signature.dateSigned);
   }
-  
+
   return normalized;
 }
 
@@ -129,14 +128,16 @@ export const CreateSessionSchema = z.object({
 });
 
 export const MigrateLocalStorageSchema = z.object({
-  items: z.array(
-    z.object({
-      rawText: z.string().min(1),
-      summary: z.string().optional(),
-      timestamp: z.number().optional(),
-      source: z.string().optional(),
-    })
-  ).max(100, 'Too many items to migrate at once'),
+  items: z
+    .array(
+      z.object({
+        rawText: z.string().min(1),
+        summary: z.string().optional(),
+        timestamp: z.number().optional(),
+        source: z.string().optional(),
+      })
+    )
+    .max(100, 'Too many items to migrate at once'),
 });
 
 // ============================================================================
@@ -179,9 +180,7 @@ export interface FileValidationResult {
   error?: string;
 }
 
-export function validateFileUpload(
-  file: Express.Multer.File | undefined
-): FileValidationResult {
+export function validateFileUpload(file: Express.Multer.File | undefined): FileValidationResult {
   if (!file) {
     return { valid: false, error: 'No file provided' };
   }
@@ -263,11 +262,7 @@ export function validateRequest<T extends z.ZodTypeAny>(
 // File Upload Middleware
 // ============================================================================
 
-export function validateFileRequest(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): void {
+export function validateFileRequest(req: Request, res: Response, next: NextFunction): void {
   const result = validateFileUpload(req.file);
 
   if (!result.valid) {
@@ -298,11 +293,7 @@ function sanitizeString(str: string): string {
     .replace(/\//g, '&#x2F;');
 }
 
-export function sanitizeRequest(
-  req: Request,
-  _res: Response,
-  next: NextFunction
-): void {
+export function sanitizeRequest(req: Request, _res: Response, next: NextFunction): void {
   // Sanitize query parameters
   if (req.query) {
     for (const [key, value] of Object.entries(req.query)) {

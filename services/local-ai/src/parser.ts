@@ -1,5 +1,5 @@
-import { 
-  createEmptyForm, 
+import {
+  createEmptyForm,
   safeValidateForm,
   type MonthlyCareCoordinationForm,
   type FieldConfidence,
@@ -10,7 +10,12 @@ import {
 import { parseLLMJSON } from './jsonUtils.js';
 import { categorizeAndValidateWithLLM } from './llmCategorizer.js';
 import { logger, createProgressTracker } from './logger.js';
-import { generateFormWithLLM, checkOllamaHealth, markLLMFailed, isMultimodalModel } from './ollama.js';
+import {
+  generateFormWithLLM,
+  checkOllamaHealth,
+  markLLMFailed,
+  isMultimodalModel,
+} from './ollama.js';
 
 export interface ParseResult {
   form: MonthlyCareCoordinationForm;
@@ -31,19 +36,19 @@ export async function parseFormFromText(
 ): Promise<ParseResult> {
   const progress = createProgressTracker('PARSER');
   progress.start('Starting form extraction pipeline');
-  
+
   progress.update(10, 'Checking Ollama availability');
   const ollamaAvailable = await checkOllamaHealth();
-  const useVision = imagePath && await isMultimodalModel();
-  
-  logger.info('Parser configuration', { 
-    ollamaAvailable, 
-    useVision, 
+  const useVision = imagePath && (await isMultimodalModel());
+
+  logger.info('Parser configuration', {
+    ollamaAvailable,
+    useVision,
     ocrConfidence,
     textLength: text.length,
-    hasImage: !!imagePath
+    hasImage: !!imagePath,
   });
-  
+
   // Priority 1: Vision LLM for poor handwriting on images
   if (ollamaAvailable && useVision && imagePath && ocrConfidence < 50) {
     try {
@@ -55,7 +60,7 @@ export async function parseFormFromText(
       logger.warn('Vision LLM failed, trying LLM categorizer', { error });
     }
   }
-  
+
   // Priority 2: LLM Categorization for better accuracy
   if (ollamaAvailable && ocrConfidence < 80) {
     try {
@@ -71,7 +76,7 @@ export async function parseFormFromText(
       }
     }
   }
-  
+
   // Priority 3: Standard LLM text structuring
   if (ollamaAvailable) {
     try {
@@ -89,7 +94,7 @@ export async function parseFormFromText(
   } else {
     progress.update(30, 'Ollama not available, using rule-based parsing');
   }
-  
+
   // Fallback: Rule-based parsing
   const result = await parseWithRules(text, ocrConfidence, ollamaAvailable, progress);
   progress.complete('Rule-based extraction complete');
@@ -105,34 +110,35 @@ async function parseWithLLMCategorizer(
   progress: ReturnType<typeof createProgressTracker>
 ): Promise<ParseResult> {
   progress.update(30, 'Sending to LLM categorizer');
-  
+
   const startTime = Date.now();
   const categorized = await categorizeAndValidateWithLLM(text, ocrConfidence);
   const duration = Date.now() - startTime;
-  
+
   progress.update(80, `Categorization complete (${duration}ms)`);
-  
+
   // Validate the form structure
   const validation = safeValidateForm(categorized.form);
-  
+
   if (!validation.success) {
     throw new Error(`Categorized form validation failed: ${validation.error.message}`);
   }
-  
+
   const confidence = generateConfidenceScores(validation.data, ocrConfidence, 'llm-categorized');
-  
+
   logger.info('LLM categorization successful', {
     duration,
     validationIssues: categorized.validationNotes.length,
-    fieldsExtracted: Object.keys(validation.data).length
+    fieldsExtracted: Object.keys(validation.data).length,
   });
-  
+
   return {
     form: validation.data,
     confidence,
     extractionMethod: 'llm-categorized',
     ollamaAvailable: true,
-    validationIssues: categorized.validationNotes.length > 0 ? categorized.validationNotes : undefined
+    validationIssues:
+      categorized.validationNotes.length > 0 ? categorized.validationNotes : undefined,
   };
 }
 
@@ -140,43 +146,43 @@ async function parseWithLLMCategorizer(
  * Parse using multimodal/vision LLM (for handwriting)
  */
 async function parseWithVisionLLM(
-  imagePath: string, 
-  ocrText: string, 
+  imagePath: string,
+  ocrText: string,
   ocrConfidence: number,
   progress: ReturnType<typeof createProgressTracker>
 ): Promise<ParseResult> {
   logger.info('Using vision LLM for handwriting recognition', { imagePath });
   progress.update(40, 'Sending image to vision LLM');
-  
+
   const startTime = Date.now();
   const llmResponse = await generateFormWithLLM(ocrText, imagePath);
   const duration = Date.now() - startTime;
-  
+
   progress.update(80, `Received LLM response (${duration}ms)`);
-  logger.debug('Vision LLM raw response', { 
+  logger.debug('Vision LLM raw response', {
     responseLength: llmResponse.length,
-    duration
+    duration,
   });
-  
+
   const parseResult = parseLLMJSON<unknown>(llmResponse);
   if (!parseResult.success) {
     throw new Error(`Vision LLM JSON parse failed: ${parseResult.error}`);
   }
   const parsed = parseResult.data;
-  
+
   progress.update(90, 'Validating LLM output');
   const validation = safeValidateForm(parsed);
-  
+
   if (!validation.success) {
     throw new Error(`Vision LLM output validation failed: ${validation.error.message}`);
   }
-  
+
   const confidence = generateConfidenceScores(validation.data, ocrConfidence, 'vision-llm');
-  
+
   logger.info('Vision LLM extraction successful', {
-    fields: Object.keys(validation.data).length
+    fields: Object.keys(validation.data).length,
   });
-  
+
   return {
     form: validation.data,
     confidence,
@@ -189,41 +195,41 @@ async function parseWithVisionLLM(
  * Parse using Ollama LLM (standard text structuring)
  */
 async function parseWithLLM(
-  text: string, 
+  text: string,
   ocrConfidence: number,
   progress: ReturnType<typeof createProgressTracker>
 ): Promise<ParseResult> {
   progress.update(40, 'Sending text to LLM for structuring');
-  
+
   const startTime = Date.now();
   const llmResponse = await generateFormWithLLM(text);
   const duration = Date.now() - startTime;
-  
+
   progress.update(80, `Received LLM response (${duration}ms)`);
-  logger.debug('LLM raw response', { 
+  logger.debug('LLM raw response', {
     responseLength: llmResponse.length,
-    duration
+    duration,
   });
-  
+
   const parseResult = parseLLMJSON<unknown>(llmResponse);
   if (!parseResult.success) {
     throw new Error(`LLM JSON parse failed: ${parseResult.error}`);
   }
   const parsed = parseResult.data;
-  
+
   progress.update(90, 'Validating LLM output');
   const validation = safeValidateForm(parsed);
-  
+
   if (!validation.success) {
     throw new Error(`LLM output validation failed: ${validation.error.message}`);
   }
-  
+
   const confidence = generateConfidenceScores(validation.data, ocrConfidence, 'llm-structured');
-  
+
   logger.info('LLM extraction successful', {
-    fields: Object.keys(validation.data).length
+    fields: Object.keys(validation.data).length,
   });
-  
+
   return {
     form: validation.data,
     confidence,
@@ -236,28 +242,31 @@ async function parseWithLLM(
  * Parse using rule-based extraction (OCR-only mode)
  */
 async function parseWithRules(
-  text: string, 
+  text: string,
   ocrConfidence: number,
   ollamaAvailable: boolean,
   progress: ReturnType<typeof createProgressTracker>
 ): Promise<ParseResult> {
   progress.update(60, 'Running pattern matching on OCR text');
-  
+
   const form = createEmptyForm();
-  const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+  const lines = text
+    .split('\n')
+    .map(l => l.trim())
+    .filter(l => l);
   const notes: string[] = [];
-  
+
   logger.debug('Starting rule-based parsing', { lineCount: lines.length });
-  
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const lowerLine = line.toLowerCase();
-    
+
     if (i % 10 === 0) {
       const percent = 60 + Math.floor((i / lines.length) * 30);
       progress.update(percent, `Processing line ${i + 1} of ${lines.length}`);
     }
-    
+
     // Header fields pattern matching
     // NOTE: recipientName, DOB, and recipientIdentifier are left empty for manual entry
     // to ensure HIPAA compliance and data accuracy
@@ -265,37 +274,37 @@ async function parseWithRules(
     //   const match = line.match(/(?:recipient name|name)\s*[:\-]?\s*(.+)/i);
     //   if (match) form.header.recipientName = match[1].trim();
     // }
-    
+
     if (lowerLine.includes('date') && !lowerLine.includes('birth')) {
       const match = line.match(/date\s*[:\-]?\s*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i);
       if (match) form.header.date = match[1].trim();
     }
-    
+
     if (lowerLine.includes('time')) {
       const match = line.match(/time\s*[:\-]?\s*(\d{1,2}:\d{2}\s*(?:AM|PM|am|pm)?)/i);
       if (match) form.header.time = match[1].trim();
     }
-    
+
     // DOB left empty for manual entry (HIPAA compliance)
     // if (lowerLine.includes('dob') || lowerLine.includes('date of birth')) {
     //   const match = line.match(/(?:dob|date of birth)\s*[:\-]?\s*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i);
     //   if (match) form.header.dob = match[1].trim();
     // }
-    
+
     if (lowerLine.includes('location')) {
       const match = line.match(/location\s*[:\-]?\s*(.+)/i);
       if (match) form.header.location = match[1].trim();
     }
-    
+
     // Recipient ID left empty for manual entry (HIPAA compliance)
     // if (lowerLine.includes('identifier') || lowerLine.includes('id')) {
     //   const match = line.match(/(?:recipient identifier|identifier|id)\s*[:\-]?\s*(.+)/i);
     //   if (match) form.header.recipientIdentifier = match[1].trim();
     // }
-    
+
     // Checkboxes
     const checkedPattern = /\[x\]|[X]|checked|yes/i;
-    
+
     if (lowerLine.includes('sih')) {
       form.careCoordinationType.sih = checkedPattern.test(line);
     }
@@ -303,30 +312,32 @@ async function parseWithRules(
       form.careCoordinationType.hcbw = checkedPattern.test(line);
     }
   }
-  
+
   progress.update(90, 'Extracting narrative sections');
   const sections = extractNarrativeSections(text);
   form.narrative = { ...form.narrative, ...sections };
-  
+
   if (!ollamaAvailable) {
-    notes.push('OCR-only mode: Ollama not available. Fields extracted using pattern matching only.');
+    notes.push(
+      'OCR-only mode: Ollama not available. Fields extracted using pattern matching only.'
+    );
   }
   notes.push('Please review all fields carefully as automated extraction may contain errors.');
-  
+
   // Add notes to additionalNotes
   if (form.narrative.additionalNotes) {
     form.narrative.additionalNotes = notes.join('\n') + '\n\n' + form.narrative.additionalNotes;
   } else {
     form.narrative.additionalNotes = notes.join('\n');
   }
-  
+
   const confidence = generateConfidenceScores(form, ocrConfidence, 'ocr-only');
-  
+
   logger.info('Rule-based extraction complete', {
     headerFields: Object.values(form.header).filter(v => v).length,
-    checkboxes: Object.values(form.careCoordinationType).filter(v => v).length
+    checkboxes: Object.values(form.careCoordinationType).filter(v => v).length,
   });
-  
+
   return {
     form,
     confidence,
@@ -341,16 +352,37 @@ async function parseWithRules(
 function extractNarrativeSections(text: string): Partial<MonthlyCareCoordinationForm['narrative']> {
   const sections: Partial<MonthlyCareCoordinationForm['narrative']> = {};
   const lowerText = text.toLowerCase();
-  
+
   const sectionPatterns = [
-    { key: 'recipientAndVisitObservations', patterns: ['recipient & visit observations', 'recipient and visit observations', 'visit observations'] },
-    { key: 'healthEmotionalStatus', patterns: ['health/emotional status', 'health emotional status', 'med changes', 'health status'] },
+    {
+      key: 'recipientAndVisitObservations',
+      patterns: [
+        'recipient & visit observations',
+        'recipient and visit observations',
+        'visit observations',
+      ],
+    },
+    {
+      key: 'healthEmotionalStatus',
+      patterns: [
+        'health/emotional status',
+        'health emotional status',
+        'med changes',
+        'health status',
+      ],
+    },
     { key: 'reviewOfServices', patterns: ['review of services', 'services review'] },
-    { key: 'progressTowardGoals', patterns: ['progress toward goals', 'progress to goals', 'goals progress'] },
+    {
+      key: 'progressTowardGoals',
+      patterns: ['progress toward goals', 'progress to goals', 'goals progress'],
+    },
     { key: 'additionalNotes', patterns: ['additional notes', 'notes'] },
-    { key: 'followUpTasks', patterns: ['follow up tasks', 'followup tasks', 'care coordinator follow up'] },
+    {
+      key: 'followUpTasks',
+      patterns: ['follow up tasks', 'followup tasks', 'care coordinator follow up'],
+    },
   ] as const;
-  
+
   for (const { key, patterns } of sectionPatterns) {
     for (const pattern of patterns) {
       const idx = lowerText.indexOf(pattern);
@@ -365,7 +397,7 @@ function extractNarrativeSections(text: string): Partial<MonthlyCareCoordination
       }
     }
   }
-  
+
   return sections;
 }
 
@@ -385,7 +417,7 @@ function findNextSectionIndex(text: string, startPos: number): number {
     'care coordinator follow up',
     'signature',
   ];
-  
+
   let nextIndex = text.length;
   for (const header of sectionHeaders) {
     const idx = text.indexOf(header, startPos);
@@ -405,26 +437,27 @@ function generateConfidenceScores(
   method: 'ocr-only' | 'llm-structured' | 'llm-categorized' | 'vision-llm'
 ): FieldConfidence[] {
   const confidence: FieldConfidence[] = [];
-  const baseConfidence = baseOcrConfidence > 80 ? 'high' : baseOcrConfidence > 50 ? 'medium' : 'low';
-  
+  const baseConfidence =
+    baseOcrConfidence > 80 ? 'high' : baseOcrConfidence > 50 ? 'medium' : 'low';
+
   const addField = (field: FieldPath, hasValue: boolean) => {
     let level: ConfidenceLevel = baseConfidence;
-    
+
     if (method === 'ocr-only') {
       if (level === 'high') level = 'medium';
       else if (level === 'medium') level = 'low';
     }
-    
+
     // LLM-categorized gets boost for being validated
     if (method === 'llm-categorized' && hasValue) {
       if (level === 'low') level = 'medium';
       else if (level === 'medium') level = 'high';
     }
-    
+
     if (!hasValue) {
       level = 'low';
     }
-    
+
     confidence.push({
       field,
       confidence: level,
@@ -432,7 +465,7 @@ function generateConfidenceScores(
       source: method,
     });
   };
-  
+
   // Header fields
   addField('header.recipientName', !!form.header.recipientName);
   addField('header.date', !!form.header.date);
@@ -440,23 +473,26 @@ function generateConfidenceScores(
   addField('header.recipientIdentifier', !!form.header.recipientIdentifier);
   addField('header.dob', !!form.header.dob);
   addField('header.location', !!form.header.location);
-  
+
   // Checkboxes
   addField('careCoordinationType.sih', true);
   addField('careCoordinationType.hcbw', true);
-  
+
   // Narrative fields
-  addField('narrative.recipientAndVisitObservations', !!form.narrative.recipientAndVisitObservations);
+  addField(
+    'narrative.recipientAndVisitObservations',
+    !!form.narrative.recipientAndVisitObservations
+  );
   addField('narrative.healthEmotionalStatus', !!form.narrative.healthEmotionalStatus);
   addField('narrative.reviewOfServices', !!form.narrative.reviewOfServices);
   addField('narrative.progressTowardGoals', !!form.narrative.progressTowardGoals);
   addField('narrative.additionalNotes', !!form.narrative.additionalNotes);
   addField('narrative.followUpTasks', !!form.narrative.followUpTasks);
-  
+
   // Signature fields
   addField('signature.careCoordinatorName', !!form.signature.careCoordinatorName);
   addField('signature.signature', !!form.signature.signature);
   addField('signature.dateSigned', !!form.signature.dateSigned);
-  
+
   return confidence;
 }

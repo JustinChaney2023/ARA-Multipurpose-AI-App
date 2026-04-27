@@ -36,43 +36,45 @@ const ConfigSchema = z.object({
     numCtx: z.number().default(8192),
     disabled: z.boolean().default(false),
     // GPU optimization settings
-    gpu: z.object({
-      enabled: z.boolean().default(true),
-      numGpuLayers: z.number().min(-1).default(-1), // -1 = auto-detect, 0 = CPU only, >0 = specific layers
-      mainGpu: z.number().default(0),
-      tensorSplit: z.string().optional(), // e.g., "3,1" for multi-GPU
-    }).default({}),
+    gpu: z
+      .object({
+        enabled: z.boolean().default(true),
+        numGpuLayers: z.number().min(-1).default(-1), // -1 = auto-detect, 0 = CPU only, >0 = specific layers
+        mainGpu: z.number().default(0),
+        tensorSplit: z.string().optional(), // e.g., "3,1" for multi-GPU
+      })
+      .default({}),
     // Performance settings
-    performance: z.object({
-      numThread: z.number().default(0), // 0 = auto
-      numBatch: z.number().default(512),
-      numPredict: z.number().default(1200),
-      topP: z.number().default(0.7),
-      topK: z.number().default(20),
-      repeatPenalty: z.number().default(1.0),
-      frequencyPenalty: z.number().default(0.0),
-      presencePenalty: z.number().default(0.0),
-    }).default({}),
+    performance: z
+      .object({
+        numThread: z.number().default(0), // 0 = auto
+        numBatch: z.number().default(512),
+        numPredict: z.number().default(1200),
+        topP: z.number().default(0.7),
+        topK: z.number().default(20),
+        repeatPenalty: z.number().default(1.0),
+        frequencyPenalty: z.number().default(0.0),
+        presencePenalty: z.number().default(0.0),
+      })
+      .default({}),
     // Connection pooling
-    pool: z.object({
-      enabled: z.boolean().default(true),
-      maxSockets: z.number().default(10),
-      keepAlive: z.boolean().default(true),
-      keepAliveMsecs: z.number().default(30000),
-    }).default({}),
+    pool: z
+      .object({
+        enabled: z.boolean().default(true),
+        maxSockets: z.number().default(10),
+        keepAlive: z.boolean().default(true),
+        keepAliveMsecs: z.number().default(30000),
+      })
+      .default({}),
   }),
 
   // OCR settings
   ocr: z.object({
     confidenceThreshold: z.number().default(50),
     maxFileSize: z.number().default(50 * 1024 * 1024), // 50MB
-    allowedTypes: z.array(z.string()).default([
-      'application/pdf',
-      'image/png',
-      'image/jpeg',
-      'image/jpg',
-      'image/webp',
-    ]),
+    allowedTypes: z
+      .array(z.string())
+      .default(['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'image/webp']),
     tesseractLangPath: z.string().optional(),
     pdfDensity: z.number().default(300),
   }),
@@ -99,12 +101,14 @@ const ConfigSchema = z.object({
 
   // Local SQLite persistence (Phase 3). Service-owned so the DB lives with
   // the LLM for future RAG work — see docs/refactor/phase-3-persistence.md.
-  db: z.object({
-    // Default path is relative to the service working dir; resolved to absolute
-    // at connection time. Override via DB_PATH env var for tests or external
-    // drives.
-    path: z.string().default('data/ara.db'),
-  }).default({}),
+  db: z
+    .object({
+      // Default path is relative to the service working dir; resolved to absolute
+      // at connection time. Override via DB_PATH env var for tests or external
+      // drives.
+      path: z.string().default('data/ara.db'),
+    })
+    .default({}),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -128,46 +132,72 @@ function loadConfig(): Config {
       model: process.env.OLLAMA_MODEL,
       embedModel: process.env.EMBED_MODEL,
       timeout: process.env.OLLAMA_TIMEOUT ? parseInt(process.env.OLLAMA_TIMEOUT, 10) : undefined,
-      visionTimeout: process.env.OLLAMA_VISION_TIMEOUT ? parseInt(process.env.OLLAMA_VISION_TIMEOUT, 10) : undefined,
-      maxRetries: process.env.OLLAMA_MAX_RETRIES ? parseInt(process.env.OLLAMA_MAX_RETRIES, 10) : undefined,
-      temperature: process.env.OLLAMA_TEMPERATURE ? parseFloat(process.env.OLLAMA_TEMPERATURE) : undefined,
+      visionTimeout: process.env.OLLAMA_VISION_TIMEOUT
+        ? parseInt(process.env.OLLAMA_VISION_TIMEOUT, 10)
+        : undefined,
+      maxRetries: process.env.OLLAMA_MAX_RETRIES
+        ? parseInt(process.env.OLLAMA_MAX_RETRIES, 10)
+        : undefined,
+      temperature: process.env.OLLAMA_TEMPERATURE
+        ? parseFloat(process.env.OLLAMA_TEMPERATURE)
+        : undefined,
       numCtx: process.env.OLLAMA_NUM_CTX ? parseInt(process.env.OLLAMA_NUM_CTX, 10) : undefined,
       disabled: process.env.DISABLE_LLM === 'true',
       gpu: {
         enabled: process.env.OLLAMA_GPU_ENABLED !== 'false',
-        numGpuLayers: process.env.OLLAMA_NUM_GPU_LAYERS ? parseInt(process.env.OLLAMA_NUM_GPU_LAYERS, 10) : undefined,
-        mainGpu: process.env.OLLAMA_MAIN_GPU ? parseInt(process.env.OLLAMA_MAIN_GPU, 10) : undefined,
+        numGpuLayers: process.env.OLLAMA_NUM_GPU_LAYERS
+          ? parseInt(process.env.OLLAMA_NUM_GPU_LAYERS, 10)
+          : undefined,
+        mainGpu: process.env.OLLAMA_MAIN_GPU
+          ? parseInt(process.env.OLLAMA_MAIN_GPU, 10)
+          : undefined,
         tensorSplit: process.env.OLLAMA_TENSOR_SPLIT,
       },
       performance: {
-        numThread: process.env.OLLAMA_NUM_THREAD ? parseInt(process.env.OLLAMA_NUM_THREAD, 10) : undefined,
-        numBatch: process.env.OLLAMA_NUM_BATCH ? parseInt(process.env.OLLAMA_NUM_BATCH, 10) : undefined,
-        numPredict: process.env.OLLAMA_NUM_PREDICT ? parseInt(process.env.OLLAMA_NUM_PREDICT, 10) : undefined,
+        numThread: process.env.OLLAMA_NUM_THREAD
+          ? parseInt(process.env.OLLAMA_NUM_THREAD, 10)
+          : undefined,
+        numBatch: process.env.OLLAMA_NUM_BATCH
+          ? parseInt(process.env.OLLAMA_NUM_BATCH, 10)
+          : undefined,
+        numPredict: process.env.OLLAMA_NUM_PREDICT
+          ? parseInt(process.env.OLLAMA_NUM_PREDICT, 10)
+          : undefined,
         topP: process.env.OLLAMA_TOP_P ? parseFloat(process.env.OLLAMA_TOP_P) : undefined,
         topK: process.env.OLLAMA_TOP_K ? parseInt(process.env.OLLAMA_TOP_K, 10) : undefined,
-        repeatPenalty: process.env.OLLAMA_REPEAT_PENALTY ? parseFloat(process.env.OLLAMA_REPEAT_PENALTY) : undefined,
-        frequencyPenalty: process.env.OLLAMA_FREQUENCY_PENALTY ? parseFloat(process.env.OLLAMA_FREQUENCY_PENALTY) : undefined,
-        presencePenalty: process.env.OLLAMA_PRESENCE_PENALTY ? parseFloat(process.env.OLLAMA_PRESENCE_PENALTY) : undefined,
+        repeatPenalty: process.env.OLLAMA_REPEAT_PENALTY
+          ? parseFloat(process.env.OLLAMA_REPEAT_PENALTY)
+          : undefined,
+        frequencyPenalty: process.env.OLLAMA_FREQUENCY_PENALTY
+          ? parseFloat(process.env.OLLAMA_FREQUENCY_PENALTY)
+          : undefined,
+        presencePenalty: process.env.OLLAMA_PRESENCE_PENALTY
+          ? parseFloat(process.env.OLLAMA_PRESENCE_PENALTY)
+          : undefined,
       },
       pool: {
         enabled: process.env.OLLAMA_POOL_ENABLED !== 'false',
-        maxSockets: process.env.OLLAMA_POOL_MAX_SOCKETS ? parseInt(process.env.OLLAMA_POOL_MAX_SOCKETS, 10) : undefined,
+        maxSockets: process.env.OLLAMA_POOL_MAX_SOCKETS
+          ? parseInt(process.env.OLLAMA_POOL_MAX_SOCKETS, 10)
+          : undefined,
         keepAlive: process.env.OLLAMA_POOL_KEEP_ALIVE !== 'false',
-        keepAliveMsecs: process.env.OLLAMA_POOL_KEEP_ALIVE_MS ? parseInt(process.env.OLLAMA_POOL_KEEP_ALIVE_MS, 10) : undefined,
+        keepAliveMsecs: process.env.OLLAMA_POOL_KEEP_ALIVE_MS
+          ? parseInt(process.env.OLLAMA_POOL_KEEP_ALIVE_MS, 10)
+          : undefined,
       },
     },
     ocr: {
       confidenceThreshold: process.env.OCR_CONFIDENCE_THRESHOLD
         ? parseInt(process.env.OCR_CONFIDENCE_THRESHOLD, 10)
         : undefined,
-      maxFileSize: process.env.MAX_FILE_SIZE
-        ? parseInt(process.env.MAX_FILE_SIZE, 10)
-        : undefined,
+      maxFileSize: process.env.MAX_FILE_SIZE ? parseInt(process.env.MAX_FILE_SIZE, 10) : undefined,
       tesseractLangPath: process.env.TESSERACT_LANG_PATH,
       pdfDensity: process.env.PDF_DENSITY ? parseInt(process.env.PDF_DENSITY, 10) : undefined,
     },
     upload: {
-      maxFiles: process.env.UPLOAD_MAX_FILES ? parseInt(process.env.UPLOAD_MAX_FILES, 10) : undefined,
+      maxFiles: process.env.UPLOAD_MAX_FILES
+        ? parseInt(process.env.UPLOAD_MAX_FILES, 10)
+        : undefined,
       cleanupInterval: process.env.UPLOAD_CLEANUP_INTERVAL
         ? parseInt(process.env.UPLOAD_CLEANUP_INTERVAL, 10)
         : undefined,

@@ -8,8 +8,8 @@ export default defineConfig(async () => ({
     port: 1420,
     strictPort: true,
     watch: {
-      ignored: ['**/src-tauri/**']
-    }
+      ignored: ['**/src-tauri/**'],
+    },
   },
-  envPrefix: ['VITE_', 'TAURI_']
+  envPrefix: ['VITE_', 'TAURI_'],
 }));

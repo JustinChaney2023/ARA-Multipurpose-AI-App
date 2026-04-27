@@ -1,6 +1,8 @@
 # ARA Caregiver Assistant
 
-Alzheimer's Resource Alaska Caregiver Assistant - A **local-first desktop application** that converts unstructured caregiver notes into structured "Monthly Care Coordination Monitoring Contact" forms.
+Alzheimer's Resource Alaska Caregiver Assistant - A **local-first desktop
+application** that converts unstructured caregiver notes into structured
+"Monthly Care Coordination Monitoring Contact" forms.
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Node.js](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)
@@ -9,10 +11,12 @@ Alzheimer's Resource Alaska Caregiver Assistant - A **local-first desktop applic
 
 - **📄 Import**: Drag-and-drop PDFs or images of caregiver notes
 - **🔍 OCR**: Extract text using local OCR (tesseract.js) - no cloud services
-- **🤖 AI Enhancement**: Optional Ollama LLM integration for better extraction accuracy
+- **🤖 AI Enhancement**: Optional Ollama LLM integration for better extraction
+  accuracy
 - **✏️ Review**: Edit extracted form fields with confidence highlighting
 - **📤 Export**: Generate fillable PDFs with extracted data
-- **🔒 HIPAA-Compliant**: All processing happens locally by default; no PHI leaves the device
+- **🔒 HIPAA-Compliant**: All processing happens locally by default; no PHI
+  leaves the device
 
 ## Quick Start
 
@@ -45,6 +49,7 @@ npm run dev:service
 # Terminal 2: Start Web App
 npm run dev:web
 ```
+
 </details>
 
 <details>
@@ -63,19 +68,20 @@ npm run dev:service
 # Terminal 2: Start Web App
 npm run dev:web
 ```
+
 </details>
 
 Open http://localhost:1420 in your browser.
 
 ## Documentation
 
-| Document | Description |
-|----------|-------------|
-| [SETUP.md](SETUP.md) | Complete setup guide for all platforms |
-| [QUICKSTART.md](QUICKSTART.md) | Quick reference for common tasks |
-| [docs/development.md](docs/development.md) | Detailed development guide |
-| [docs/ollama-setup.md](docs/ollama-setup.md) | Ollama installation and setup |
-| [docs/ollama-troubleshooting.md](docs/ollama-troubleshooting.md) | Common Ollama issues |
+| Document                                                         | Description                            |
+| ---------------------------------------------------------------- | -------------------------------------- |
+| [SETUP.md](SETUP.md)                                             | Complete setup guide for all platforms |
+| [QUICKSTART.md](QUICKSTART.md)                                   | Quick reference for common tasks       |
+| [docs/development.md](docs/development.md)                       | Detailed development guide             |
+| [docs/ollama-setup.md](docs/ollama-setup.md)                     | Ollama installation and setup          |
+| [docs/ollama-troubleshooting.md](docs/ollama-troubleshooting.md) | Common Ollama issues                   |
 
 ## Project Structure
 
@@ -96,23 +102,23 @@ ara-caregiver-assistant/
 
 ## Tech Stack
 
-| Component | Technology |
-|-----------|------------|
-| **Desktop UI** | Tauri v1.5 + React 18 + TypeScript 5.3 |
-| **Local AI Service** | Node.js 18+ + Express + TypeScript |
-| **OCR Engine** | tesseract.js (local, offline) |
-| **PDF Processing** | pdf-parse, pdf2pic, pdf-lib |
-| **Optional LLM** | Ollama with Qwen3 4B |
-| **Schema Validation** | Zod |
-| **Testing** | Vitest |
+| Component             | Technology                             |
+| --------------------- | -------------------------------------- |
+| **Desktop UI**        | Tauri v1.5 + React 18 + TypeScript 5.3 |
+| **Local AI Service**  | Node.js 18+ + Express + TypeScript     |
+| **OCR Engine**        | tesseract.js (local, offline)          |
+| **PDF Processing**    | pdf-parse, pdf2pic, pdf-lib            |
+| **Optional LLM**      | Ollama with Qwen3 4B                   |
+| **Schema Validation** | Zod                                    |
+| **Testing**           | Vitest                                 |
 
 ## Platform Support
 
 | Platform | Web Mode | Desktop App | Docker |
-|----------|----------|-------------|--------|
-| Windows | ✅ | ✅ | ✅ |
-| macOS | ✅ | ✅ | ✅ |
-| Linux | ✅ | ✅ | ✅ |
+| -------- | -------- | ----------- | ------ |
+| Windows  | ✅       | ✅          | ✅     |
+| macOS    | ✅       | ✅          | ✅     |
+| Linux    | ✅       | ✅          | ✅     |
 
 ## Development Commands
 

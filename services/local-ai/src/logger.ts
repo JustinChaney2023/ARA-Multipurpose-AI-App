@@ -6,11 +6,11 @@ import { setProgress } from './progressStore.js';
 
 // Track current operations and their stages for accurate progress
 const _operationStages: Record<string, { start: number; end: number }> = {
-  'EXTRACT': { start: 0, end: 100 },
-  'OCR': { start: 10, end: 50 },
-  'PARSER': { start: 50, end: 95 },
-  'FILL': { start: 0, end: 100 },
-  'NARRATIVE_QA': { start: 0, end: 100 },
+  EXTRACT: { start: 0, end: 100 },
+  OCR: { start: 10, end: 50 },
+  PARSER: { start: 50, end: 95 },
+  FILL: { start: 0, end: 100 },
+  NARRATIVE_QA: { start: 0, end: 100 },
 };
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
@@ -30,18 +30,18 @@ function formatTime(): string {
 
 function log(level: LogLevel, message: string, meta?: Record<string, unknown>): void {
   if (levels[level] < levels[LOG_LEVEL]) return;
-  
+
   const timestamp = formatTime();
   const color = {
     debug: '\x1b[36m', // Cyan
-    info: '\x1b[32m',  // Green
-    warn: '\x1b[33m',  // Yellow
+    info: '\x1b[32m', // Green
+    warn: '\x1b[33m', // Yellow
     error: '\x1b[31m', // Red
   }[level];
-  
+
   const reset = '\x1b[0m';
   const prefix = `${color}[${timestamp}] [${level.toUpperCase()}]${reset}`;
-  
+
   if (meta) {
     console.log(`${prefix} ${message}`, meta);
   } else {
@@ -76,7 +76,7 @@ export function updateProgress(stage: string, percent: number, message: string):
   const progress = { stage, percent, message };
   logger.info(`[${stage}] ${percent}% - ${message}`);
   progressCallbacks.forEach(cb => cb(progress));
-  
+
   // Also store in progress store for API polling
   setProgress(stage, percent, message);
 }
@@ -86,7 +86,7 @@ export function updateProgress(stage: string, percent: number, message: string):
  */
 export function createProgressTracker(operation: string) {
   const startTime = Date.now();
-  
+
   return {
     start: (message: string) => {
       updateProgress(operation, 0, message);

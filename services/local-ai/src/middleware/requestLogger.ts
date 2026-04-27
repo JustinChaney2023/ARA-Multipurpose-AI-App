@@ -41,8 +41,12 @@ export function requestLogger(req: Request, res: Response, next: NextFunction): 
 
   // Capture response finish
   const originalEnd = res.end.bind(res);
-  
-  res.end = function(chunk?: unknown, encoding?: BufferEncoding | (() => void), cb?: () => void): Response {
+
+  res.end = function (
+    chunk?: unknown,
+    encoding?: BufferEncoding | (() => void),
+    cb?: () => void
+  ): Response {
     // Calculate duration
     const timing = requestTimings.get(req);
     if (timing) {
@@ -76,12 +80,7 @@ export function requestLogger(req: Request, res: Response, next: NextFunction): 
 /**
  * Log a completed request
  */
-function logRequest(
-  req: Request,
-  res: Response,
-  chunk: unknown,
-  timing?: RequestTiming
-): void {
+function logRequest(req: Request, res: Response, chunk: unknown, timing?: RequestTiming): void {
   const status = res.statusCode;
   const method = req.method;
   const path = req.path;

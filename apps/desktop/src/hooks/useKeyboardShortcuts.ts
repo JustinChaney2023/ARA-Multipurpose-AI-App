@@ -10,34 +10,37 @@ interface ShortcutConfig {
 }
 
 export function useKeyboardShortcuts(shortcuts: ShortcutConfig[]) {
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    // Don't trigger shortcuts when typing in inputs, selects, or content-editables
-    const target = e.target as HTMLElement;
-    if (
-      target instanceof HTMLInputElement ||
-      target instanceof HTMLTextAreaElement ||
-      target instanceof HTMLSelectElement ||
-      target.isContentEditable
-    ) {
-      return;
-    }
-
-    for (const shortcut of shortcuts) {
-      const keyMatch = e.key.toLowerCase() === shortcut.key.toLowerCase() ||
-                       e.key === shortcut.key; // for special keys like Escape
-      const ctrlMatch = !!shortcut.ctrl === e.ctrlKey;
-      const shiftMatch = !!shortcut.shift === e.shiftKey;
-      const altMatch = !!shortcut.alt === e.altKey;
-
-      if (keyMatch && ctrlMatch && shiftMatch && altMatch) {
-        if (shortcut.preventDefault !== false) {
-          e.preventDefault();
-        }
-        shortcut.handler();
-        break;
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      // Don't trigger shortcuts when typing in inputs, selects, or content-editables
+      const target = e.target as HTMLElement;
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement ||
+        target.isContentEditable
+      ) {
+        return;
       }
-    }
-  }, [shortcuts]);
+
+      for (const shortcut of shortcuts) {
+        const keyMatch =
+          e.key.toLowerCase() === shortcut.key.toLowerCase() || e.key === shortcut.key; // for special keys like Escape
+        const ctrlMatch = !!shortcut.ctrl === e.ctrlKey;
+        const shiftMatch = !!shortcut.shift === e.shiftKey;
+        const altMatch = !!shortcut.alt === e.altKey;
+
+        if (keyMatch && ctrlMatch && shiftMatch && altMatch) {
+          if (shortcut.preventDefault !== false) {
+            e.preventDefault();
+          }
+          shortcut.handler();
+          break;
+        }
+      }
+    },
+    [shortcuts]
+  );
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);

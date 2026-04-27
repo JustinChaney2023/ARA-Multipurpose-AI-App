@@ -42,7 +42,8 @@ function App() {
   const [importKey, setImportKey] = useState(0);
   // Phase 3: which patient is currently selected in the sidebar.
   const [selectedPatientId, setSelectedPatientId] = useState<number | undefined>(undefined);
-  const [screenBeforeSettings, setScreenBeforeSettings] = useState<Exclude<Screen, 'settings'>>('import');
+  const [screenBeforeSettings, setScreenBeforeSettings] =
+    useState<Exclude<Screen, 'settings'>>('import');
 
   // One-time migration from localStorage history to SQLite.
   useEffect(() => {
@@ -90,83 +91,84 @@ function App() {
 
   return (
     <ErrorBoundary>
-    <div className="app">
-      <header className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1>ARA Caregiver Assistant</h1>
-        {/* Settings link lives in the header so it's reachable from any screen
+      <div className="app">
+        <header
+          className="header"
+          style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+        >
+          <h1>ARA Caregiver Assistant</h1>
+          {/* Settings link lives in the header so it's reachable from any screen
             without crowding the per-screen controls. */}
-        {currentScreen !== 'settings' && (
-          <button
-            onClick={handleOpenSettings}
-            className="btn btn-secondary"
-            title="Edit prompts used by the AI"
-          >
-            Settings
-          </button>
-        )}
-      </header>
+          {currentScreen !== 'settings' && (
+            <button
+              onClick={handleOpenSettings}
+              className="btn btn-secondary"
+              title="Edit prompts used by the AI"
+            >
+              Settings
+            </button>
+          )}
+        </header>
 
-      <div className="app-body">
-        {currentScreen !== 'settings' && (
-          <PatientSidebar
-            selectedPatientId={selectedPatientId}
-            onSelectPatient={setSelectedPatientId}
-          />
-        )}
+        <div className="app-body">
+          {currentScreen !== 'settings' && (
+            <PatientSidebar
+              selectedPatientId={selectedPatientId}
+              onSelectPatient={setSelectedPatientId}
+            />
+          )}
 
-        <main className={`main ${currentScreen !== 'settings' ? 'with-sidebar' : ''}`}>
-          {/* Breadcrumb. Two rails — the summary path (default) and the form path
+          <main className={`main ${currentScreen !== 'settings' ? 'with-sidebar' : ''}`}>
+            {/* Breadcrumb. Two rails — the summary path (default) and the form path
               (opt-in) — displayed conditionally so the user sees where they are.
               Hidden on the settings screen since it's an out-of-flow detour. */}
-          {currentScreen !== 'settings' && (
-            <nav className="nav-steps">
-              <span className={`nav-step ${currentScreen === 'import' ? 'active' : ''}`}>
-                1. Input
-              </span>
-              <span>-&gt;</span>
-              {currentScreen === 'review' ? (
-                <span className={`nav-step active`}>2. Fill Form</span>
-              ) : (
-                <span className={`nav-step ${currentScreen === 'summary' ? 'active' : ''}`}>
-                  2. Summary
+            {currentScreen !== 'settings' && (
+              <nav className="nav-steps">
+                <span className={`nav-step ${currentScreen === 'import' ? 'active' : ''}`}>
+                  1. Input
                 </span>
-              )}
-            </nav>
-          )}
+                <span>-&gt;</span>
+                {currentScreen === 'review' ? (
+                  <span className={`nav-step active`}>2. Fill Form</span>
+                ) : (
+                  <span className={`nav-step ${currentScreen === 'summary' ? 'active' : ''}`}>
+                    2. Summary
+                  </span>
+                )}
+              </nav>
+            )}
 
-          {currentScreen === 'import' && (
-            <ImportScreen
-              key={importKey}
-              selectedPatientId={selectedPatientId}
-              onSummarized={handleSummarized}
-              onFormRequested={handleFormRequested}
-            />
-          )}
+            {currentScreen === 'import' && (
+              <ImportScreen
+                key={importKey}
+                selectedPatientId={selectedPatientId}
+                onSummarized={handleSummarized}
+                onFormRequested={handleFormRequested}
+              />
+            )}
 
-          {currentScreen === 'summary' && summaryPayload && (
-            <SummaryScreen
-              payload={summaryPayload}
-              onBack={handleBackToImport}
-              onNew={handleNew}
-            />
-          )}
+            {currentScreen === 'summary' && summaryPayload && (
+              <SummaryScreen
+                payload={summaryPayload}
+                onBack={handleBackToImport}
+                onNew={handleNew}
+              />
+            )}
 
-          {currentScreen === 'review' && extractionResult && (
-            <ReviewScreen
-              result={extractionResult}
-              selectedPatientId={selectedPatientId}
-              onBack={handleBackToImport}
-              onNewForm={handleNew}
-              onSummarized={handleSummarized}
-            />
-          )}
+            {currentScreen === 'review' && extractionResult && (
+              <ReviewScreen
+                result={extractionResult}
+                selectedPatientId={selectedPatientId}
+                onBack={handleBackToImport}
+                onNewForm={handleNew}
+                onSummarized={handleSummarized}
+              />
+            )}
 
-          {currentScreen === 'settings' && (
-            <SettingsScreen onBack={handleBackFromSettings} />
-          )}
-        </main>
+            {currentScreen === 'settings' && <SettingsScreen onBack={handleBackFromSettings} />}
+          </main>
+        </div>
       </div>
-    </div>
     </ErrorBoundary>
   );
 }

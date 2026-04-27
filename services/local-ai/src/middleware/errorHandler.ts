@@ -99,7 +99,9 @@ export function validateRequest<T>(
     try {
       const data = schema.parse(req[source]);
       // Store validated data
-      (req as unknown as Record<string, unknown>)[`validated${source.charAt(0).toUpperCase()}${source.slice(1)}`] = data;
+      (req as unknown as Record<string, unknown>)[
+        `validated${source.charAt(0).toUpperCase()}${source.slice(1)}`
+      ] = data;
       next();
     } catch (error) {
       const traceId = generateTraceId();

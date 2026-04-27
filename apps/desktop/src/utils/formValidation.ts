@@ -12,7 +12,14 @@ export interface ValidationState {
   warnings: ValidationError[];
 }
 
-function normalizeIssues(items: Array<{ field?: FieldPath; path?: FieldPath; message: string; severity: 'error' | 'warning' }>): ValidationError[] {
+function normalizeIssues(
+  items: Array<{
+    field?: FieldPath;
+    path?: FieldPath;
+    message: string;
+    severity: 'error' | 'warning';
+  }>
+): ValidationError[] {
   return items
     .map(item => ({
       field: item.field ?? item.path,
@@ -24,17 +31,30 @@ function normalizeIssues(items: Array<{ field?: FieldPath; path?: FieldPath; mes
 
 export async function validateForm(form: ExtractionResult['form']): Promise<ValidationState> {
   try {
-    const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/validate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ form }),
-    });
-    
+    const response = await fetch(
+      `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/validate`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ form }),
+      }
+    );
+
     if (!response.ok) throw new Error('Validation failed');
-    const data = await response.json() as {
+    const data = (await response.json()) as {
       valid: boolean;
-      errors?: Array<{ field?: FieldPath; path?: FieldPath; message: string; severity: 'error' | 'warning' }>;
-      warnings?: Array<{ field?: FieldPath; path?: FieldPath; message: string; severity: 'error' | 'warning' }>;
+      errors?: Array<{
+        field?: FieldPath;
+        path?: FieldPath;
+        message: string;
+        severity: 'error' | 'warning';
+      }>;
+      warnings?: Array<{
+        field?: FieldPath;
+        path?: FieldPath;
+        message: string;
+        severity: 'error' | 'warning';
+      }>;
     };
 
     return {
@@ -82,7 +102,7 @@ function clientSideValidation(form: ExtractionResult['form']): ValidationState {
       severity: 'warning',
     });
   }
-  
+
   // Check DOB format if provided
   if (form.header.dob?.trim()) {
     const dobPatterns = [
@@ -98,7 +118,7 @@ function clientSideValidation(form: ExtractionResult['form']): ValidationState {
       });
     }
   }
-  
+
   // Check narrative sections
   const narrativeFields: Array<[FieldPath, string]> = [
     ['narrative.recipientAndVisitObservations', 'Recipient & Visit Observations'],
@@ -106,7 +126,7 @@ function clientSideValidation(form: ExtractionResult['form']): ValidationState {
     ['narrative.reviewOfServices', 'Review of Services'],
     ['narrative.progressTowardGoals', 'Progress Toward Goals'],
   ];
-  
+
   for (const [field, label] of narrativeFields) {
     const value = getNestedValue(form, field);
     if (!value || value.length < 20) {
@@ -117,7 +137,7 @@ function clientSideValidation(form: ExtractionResult['form']): ValidationState {
       });
     }
   }
-  
+
   return { valid: errors.length === 0, errors, warnings };
 }
 
@@ -135,28 +155,40 @@ export function setNestedValue(obj: any, path: string, value: any): void {
 // Auto-formatting with smart corrections - handles ALL edge cases
 export async function autoFormatDate(value: string): Promise<string> {
   if (!value) return '';
-  
+
   // Trim whitespace
   value = value.trim();
-  
+
   // Already normalized?
   if (/^\d{2}\/\d{2}\/\d{4}$/.test(value)) {
     return value;
   }
-  
+
   // Check for written date format (March 15, 2024)
-  const writtenMatch = value.match(/^(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s+(\d{4})$/i);
+  const writtenMatch = value.match(
+    /^(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s+(\d{4})$/i
+  );
   if (writtenMatch) {
     const months: Record<string, string> = {
-      january: '01', february: '02', march: '03', april: '04', may: '05', june: '06',
-      july: '07', august: '08', september: '09', october: '10', november: '11', december: '12'
+      january: '01',
+      february: '02',
+      march: '03',
+      april: '04',
+      may: '05',
+      june: '06',
+      july: '07',
+      august: '08',
+      september: '09',
+      october: '10',
+      november: '11',
+      december: '12',
     };
     const month = months[writtenMatch[1].toLowerCase()];
     const day = writtenMatch[2].padStart(2, '0');
     const year = writtenMatch[3];
     return `${month}/${day}/${year}`;
   }
-  
+
   // ISO format: YYYY-MM-DD or YYYY/MM/DD
   const isoMatch = value.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})$/);
   if (isoMatch) {
@@ -170,7 +202,7 @@ export async function autoFormatDate(value: string): Promise<string> {
     } else if (monthNum > 12) {
       monthNum = 12;
     }
-    
+
     // Fix invalid day
     if (dayNum === 0) {
       dayNum = 1;
@@ -194,7 +226,7 @@ export async function autoFormatDate(value: string): Promise<string> {
     const [, first, second, year] = euroMatch;
     const firstNum = parseInt(first);
     const secondNum = parseInt(second);
-    
+
     // If first number > 12, it's likely day (European format)
     if (firstNum > 12) {
       let dayNum = firstNum;
@@ -206,7 +238,7 @@ export async function autoFormatDate(value: string): Promise<string> {
       } else if (monthNum > 12) {
         monthNum = 12;
       }
-      
+
       // Fix day
       if (dayNum === 0) {
         dayNum = 1;
@@ -238,7 +270,7 @@ export async function autoFormatDate(value: string): Promise<string> {
     } else if (monthNum > 12) {
       monthNum = 12;
     }
-    
+
     // Fix invalid day (00 → 01, >31 → 31)
     if (dayNum === 0) {
       dayNum = 1;
@@ -270,39 +302,42 @@ export async function autoFormatDate(value: string): Promise<string> {
     let month = parseInt(digits.slice(0, 2));
     let day = parseInt(digits.slice(2, 4));
     const year = digits.slice(4);
-    
+
     // If month > 12, assume DDMMYYYY
     if (month > 12) {
       const temp = month;
       month = day;
       day = temp;
     }
-    
+
     // Fix invalid values
     if (month === 0) month = 1;
     if (month > 12) month = 12;
     if (day === 0) day = 1;
     if (day > 31) day = 31;
-    
+
     const daysInMonth = new Date(parseInt(year), month, 0).getDate();
     if (day > daysInMonth) day = daysInMonth;
-    
+
     return `${String(month).padStart(2, '0')}/${String(day).padStart(2, '0')}/${year}`;
   }
-  
+
   return value;
 }
 
 export async function autoFormatTime(value: string): Promise<string> {
   if (!value) return '';
-  
+
   // Try server first
   try {
-    const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/format`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ value, type: 'time' }),
-    });
+    const response = await fetch(
+      `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/format`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value, type: 'time' }),
+      }
+    );
     if (response.ok) {
       const data = await response.json();
       return data.formatted;
@@ -310,7 +345,7 @@ export async function autoFormatTime(value: string): Promise<string> {
   } catch {
     // Fall through to client-side
   }
-  
+
   // Client-side fallback
   const militaryMatch = value.match(/^(\d{1,2})(\d{2})$/);
   if (militaryMatch) {
@@ -320,12 +355,14 @@ export async function autoFormatTime(value: string): Promise<string> {
       return `${String(hours).padStart(2, '0')}:${minutes}`;
     }
   }
-  
+
   return value;
 }
 
 // Smart defaults
-export function applySmartDefaults(form: ExtractionResult['form']): Partial<ExtractionResult['form']> {
+export function applySmartDefaults(
+  form: ExtractionResult['form']
+): Partial<ExtractionResult['form']> {
   const updates: Partial<ExtractionResult['form']> = {};
 
   // Default location

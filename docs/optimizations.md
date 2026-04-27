@@ -1,10 +1,13 @@
 # Ollama Performance Optimizations
 
-This document describes the performance optimizations implemented for Ollama LLM integration in the ARA Caregiver Assistant.
+This document describes the performance optimizations implemented for Ollama LLM
+integration in the ARA Caregiver Assistant.
 
 ## Overview
 
-Instead of switching to TurboLLM or AirLLM, we've implemented several optimizations to the existing Ollama integration to improve performance and reduce latency.
+Instead of switching to TurboLLM or AirLLM, we've implemented several
+optimizations to the existing Ollama integration to improve performance and
+reduce latency.
 
 ## Implemented Optimizations
 
@@ -18,6 +21,7 @@ Instead of switching to TurboLLM or AirLLM, we've implemented several optimizati
 - Falls back to CPU inference when no GPU is available
 
 **Configuration:**
+
 ```bash
 # Enable GPU acceleration (default: true)
 OLLAMA_GPU_ENABLED=true
@@ -38,6 +42,7 @@ OLLAMA_TENSOR_SPLIT=3,1  # 75% on GPU 0, 25% on GPU 1
 - Configurable pool size and keep-alive settings
 
 **Configuration:**
+
 ```bash
 # Enable connection pooling (default: true)
 OLLAMA_POOL_ENABLED=true
@@ -55,6 +60,7 @@ OLLAMA_POOL_KEEP_ALIVE=true
 - TTL-based expiration
 
 **Configuration:**
+
 ```bash
 # Enable response caching (default: true)
 OLLAMA_CACHE_ENABLED=true
@@ -63,11 +69,13 @@ OLLAMA_CACHE_MAX_SIZE=100      # Max cached responses
 ```
 
 **Cache Statistics Endpoint:**
+
 ```bash
 GET /admin/cache
 ```
 
 **Clear Cache:**
+
 ```bash
 POST /admin/cache/clear
 ```
@@ -81,6 +89,7 @@ POST /admin/cache/clear
 - Prevents overwhelming Ollama during startup
 
 **Configuration:**
+
 ```bash
 OLLAMA_MAX_RETRIES=2
 ```
@@ -93,12 +102,13 @@ OLLAMA_MAX_RETRIES=2
 - Reduces perceived latency for long generations
 
 **Usage:**
+
 ```typescript
 import { generateWithStreaming } from './ollama.js';
 
 await generateWithStreaming(
   text,
-  (chunk) => console.log(chunk),  // Called for each token
+  chunk => console.log(chunk), // Called for each token
   imagePath
 );
 ```
@@ -146,7 +156,8 @@ POST /admin/cache/clear
 
 ## Configuration Summary
 
-All optimizations can be configured via environment variables in `services/local-ai/.env`:
+All optimizations can be configured via environment variables in
+`services/local-ai/.env`:
 
 ```bash
 # ============================================================================
@@ -183,26 +194,29 @@ OLLAMA_MAX_RETRIES=2
 
 ## Expected Performance Improvements
 
-| Optimization | Expected Improvement |
-|--------------|---------------------|
-| GPU Layer Offloading | 5-10x faster inference (with GPU) |
-| Connection Pooling | 10-20% reduced latency for repeated requests |
-| Response Caching | 50-80% faster for similar prompts |
-| Retry with Backoff | Improved reliability during Ollama startup |
-| Streaming | Better perceived latency for UI |
+| Optimization         | Expected Improvement                         |
+| -------------------- | -------------------------------------------- |
+| GPU Layer Offloading | 5-10x faster inference (with GPU)            |
+| Connection Pooling   | 10-20% reduced latency for repeated requests |
+| Response Caching     | 50-80% faster for similar prompts            |
+| Retry with Backoff   | Improved reliability during Ollama startup   |
+| Streaming            | Better perceived latency for UI              |
 
 ## Backward Compatibility
 
 All optimizations are:
+
 - **Opt-in by default** (enabled but can be disabled)
 - **Backward compatible** - existing code continues to work
 - **Graceful degradation** - falls back to CPU if GPU unavailable
 
 ## Migration Guide
 
-No migration needed! The optimizations are automatically applied when you update. To customize:
+No migration needed! The optimizations are automatically applied when you
+update. To customize:
 
 1. Copy `.env.example` to `.env`:
+
    ```bash
    cp services/local-ai/.env.example services/local-ai/.env
    ```
@@ -217,7 +231,9 @@ No migration needed! The optimizations are automatically applied when you update
 ## Troubleshooting
 
 ### High Memory Usage
+
 If you experience high memory usage:
+
 ```bash
 # Disable caching
 OLLAMA_CACHE_ENABLED=false
@@ -230,6 +246,7 @@ OLLAMA_NUM_BATCH=256
 ```
 
 ### GPU Not Detected
+
 ```bash
 # Check Ollama GPU status
 ollama ps
@@ -239,28 +256,33 @@ OLLAMA_NUM_GPU_LAYERS=20
 ```
 
 ### Slow First Request
-First request may be slow while Ollama loads the model. Subsequent requests will be faster due to:
+
+First request may be slow while Ollama loads the model. Subsequent requests will
+be faster due to:
+
 - Model staying loaded in memory (`keep_alive: 10m`)
 - Connection pooling
 - Response caching
 
 ## Comparison: Ollama vs AirLLM vs TurboLLM
 
-| Feature | Ollama (Optimized) | AirLLM | TurboLLM |
-|---------|-------------------|--------|----------|
-| **Architecture** | HTTP API | Python Library | Python Library |
-| **GPU Support** | ✅ Excellent | ✅ Good | ❌ CPU only |
-| **Model Size** | Up to 405B | Up to 405B | 50M-300M |
-| **Ease of Use** | ✅ Simple HTTP | ❌ Requires Python | ❌ Requires Python |
-| **Integration** | ✅ Fits current stack | ❌ Major refactor | ❌ Major refactor |
-| **Production Ready** | ✅ Yes | ⚠️ Beta | ❌ Experimental |
+| Feature              | Ollama (Optimized)    | AirLLM             | TurboLLM           |
+| -------------------- | --------------------- | ------------------ | ------------------ |
+| **Architecture**     | HTTP API              | Python Library     | Python Library     |
+| **GPU Support**      | ✅ Excellent          | ✅ Good            | ❌ CPU only        |
+| **Model Size**       | Up to 405B            | Up to 405B         | 50M-300M           |
+| **Ease of Use**      | ✅ Simple HTTP        | ❌ Requires Python | ❌ Requires Python |
+| **Integration**      | ✅ Fits current stack | ❌ Major refactor  | ❌ Major refactor  |
+| **Production Ready** | ✅ Yes                | ⚠️ Beta            | ❌ Experimental    |
 
 ## Conclusion
 
 The optimized Ollama integration provides:
+
 - **Better performance** through GPU offloading and caching
 - **No architectural changes** - works with existing code
 - **Production stability** - mature, well-tested codebase
 - **Flexibility** - all optimizations are configurable
 
-For most use cases, these optimizations provide sufficient performance without the complexity of switching to AirLLM or TurboLLM.
+For most use cases, these optimizations provide sufficient performance without
+the complexity of switching to AirLLM or TurboLLM.

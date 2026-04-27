@@ -4,7 +4,13 @@
  * Supports both full form filling and targeted repair of specific fields.
  */
 
-import { createEmptyForm, type MonthlyCareCoordinationForm, type FieldConfidence, type QAAnswer, type FieldPath } from '@ara/shared';
+import {
+  createEmptyForm,
+  type MonthlyCareCoordinationForm,
+  type FieldConfidence,
+  type QAAnswer,
+  type FieldPath,
+} from '@ara/shared';
 
 import { FORM_QUESTIONS, getQuestionByFieldPath, type FormQuestion } from './formQuestions.js';
 import { logger, createProgressTracker } from './logger.js';
@@ -96,7 +102,9 @@ export async function answerSpecificQuestions(
 
     onProgress?.('repairing', percent);
 
-    const batchAnswers = await Promise.all(batch.map(question => answerQuestion(question, transcript)));
+    const batchAnswers = await Promise.all(
+      batch.map(question => answerQuestion(question, transcript))
+    );
 
     for (const qa of batchAnswers) {
       answers[qa.question.fieldPath] = qa.answer;
@@ -157,10 +165,14 @@ async function answerQuestion(question: FormQuestion, transcript: string): Promi
   }
 }
 
-function buildQAPrompt(question: FormQuestion, transcriptExcerpt: string): { system: string; prompt: string } {
-  const system = question.type === 'textarea'
-    ? 'Extract form data from caregiver notes. Write detailed, complete answers using all relevant information from the transcript.'
-    : 'Extract form data from caregiver notes. Be concise and exact.';
+function buildQAPrompt(
+  question: FormQuestion,
+  transcriptExcerpt: string
+): { system: string; prompt: string } {
+  const system =
+    question.type === 'textarea'
+      ? 'Extract form data from caregiver notes. Write detailed, complete answers using all relevant information from the transcript.'
+      : 'Extract form data from caregiver notes. Be concise and exact.';
 
   const contextLine = question.context ? `Context: ${question.context}\n` : '';
   const prompt = `Question: ${question.question}
@@ -186,7 +198,10 @@ function getQuestionModelOptions(question: FormQuestion) {
 
 function selectRelevantExcerpt(question: FormQuestion, transcript: string): string {
   const normalizedTranscript = transcript.replace(/\r\n/g, '\n');
-  const lines = normalizedTranscript.split('\n').map(line => line.trim()).filter(Boolean);
+  const lines = normalizedTranscript
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean);
   if (lines.length === 0) {
     return normalizedTranscript.substring(0, 2000);
   }
@@ -204,12 +219,13 @@ function selectRelevantExcerpt(question: FormQuestion, transcript: string): stri
   });
 
   const excerptLimit = question.type === 'textarea' ? 2200 : 1200;
-  const excerpt = (relevantLines.size > 0
-    ? Array.from(relevantLines)
-        .sort((a, b) => a - b)
-        .map(index => lines[index])
-        .join('\n')
-    : normalizedTranscript.substring(0, excerptLimit));
+  const excerpt =
+    relevantLines.size > 0
+      ? Array.from(relevantLines)
+          .sort((a, b) => a - b)
+          .map(index => lines[index])
+          .join('\n')
+      : normalizedTranscript.substring(0, excerptLimit);
 
   if (excerpt.length >= 200) {
     return excerpt.substring(0, excerptLimit);
@@ -234,12 +250,67 @@ function getQuestionKeywords(question: FormQuestion): string[] {
     'header.location': ['location', 'home', 'facility', 'phone', 'visit'],
     'careCoordinationType.sih': ['sih', 'senior in-home', 'in-home'],
     'careCoordinationType.hcbw': ['hcbw', 'waiver'],
-    'narrative.recipientAndVisitObservations': ['observed', 'appearance', 'visit', 'home environment', 'present', 'client was', 'client appeared', 'during the visit'],
-    'narrative.healthEmotionalStatus': ['health', 'medication', 'doctor', 'fall', 'hospital', 'pain', 'behavior', 'mood', 'emotional', 'vital', 'diagnosis', 'symptom'],
-    'narrative.reviewOfServices': ['service', 'aide', 'nursing', 'therapy', 'provider', 'personal care', 'transportation'],
-    'narrative.progressTowardGoals': ['goal', 'progress', 'improving', 'barrier', 'independent', 'skill', 'achieving'],
-    'narrative.additionalNotes': ['family', 'equipment', 'financial', 'housing', 'safety', 'additional'],
-    'narrative.followUpTasks': ['follow-up', 'follow up', 'schedule', 'call', 'contact', 'arrange', 'appointment', 'coordinator will', 'referral'],
+    'narrative.recipientAndVisitObservations': [
+      'observed',
+      'appearance',
+      'visit',
+      'home environment',
+      'present',
+      'client was',
+      'client appeared',
+      'during the visit',
+    ],
+    'narrative.healthEmotionalStatus': [
+      'health',
+      'medication',
+      'doctor',
+      'fall',
+      'hospital',
+      'pain',
+      'behavior',
+      'mood',
+      'emotional',
+      'vital',
+      'diagnosis',
+      'symptom',
+    ],
+    'narrative.reviewOfServices': [
+      'service',
+      'aide',
+      'nursing',
+      'therapy',
+      'provider',
+      'personal care',
+      'transportation',
+    ],
+    'narrative.progressTowardGoals': [
+      'goal',
+      'progress',
+      'improving',
+      'barrier',
+      'independent',
+      'skill',
+      'achieving',
+    ],
+    'narrative.additionalNotes': [
+      'family',
+      'equipment',
+      'financial',
+      'housing',
+      'safety',
+      'additional',
+    ],
+    'narrative.followUpTasks': [
+      'follow-up',
+      'follow up',
+      'schedule',
+      'call',
+      'contact',
+      'arrange',
+      'appointment',
+      'coordinator will',
+      'referral',
+    ],
     // NOTE: Signature fields excluded (manual entry only)
     // 'signature.careCoordinatorName': ['coordinator', 'signed', 'signature', 'by'],
     // 'signature.dateSigned': ['signed', 'date signed', 'signature date'],
@@ -255,7 +326,7 @@ function parseQAResponse(raw: string): { answer: string; confidence: 'high' | 'm
 
   const confidenceMatch = text.match(/CONFIDENCE:\s*(high|medium|low)/i);
   let confidence: 'high' | 'medium' | 'low' = confidenceMatch
-    ? confidenceMatch[1].toLowerCase() as 'high' | 'medium' | 'low'
+    ? (confidenceMatch[1].toLowerCase() as 'high' | 'medium' | 'low')
     : 'medium';
 
   if (!answer && text.length > 0 && text.length < 500 && !text.includes('{')) {
@@ -275,19 +346,26 @@ function parseQAResponse(raw: string): { answer: string; confidence: 'high' | 'm
 }
 
 function extractEvidenceSnippet(excerpt: string, answer: string): string | undefined {
-  const lines = excerpt.split('\n').map(line => line.trim()).filter(Boolean);
+  const lines = excerpt
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean);
   const answerTokens = answer
     .toLowerCase()
     .split(/[^a-z0-9]+/)
     .filter(token => token.length > 2)
     .slice(0, 4);
 
-  const matchingLine = lines.find(line => answerTokens.some(token => line.toLowerCase().includes(token)));
+  const matchingLine = lines.find(line =>
+    answerTokens.some(token => line.toLowerCase().includes(token))
+  );
   const snippet = matchingLine || lines[0];
   return snippet ? snippet.substring(0, 180) : undefined;
 }
 
-function buildFormFromAnswersRecord(answers: Record<string, QAAnswer>): MonthlyCareCoordinationForm {
+function buildFormFromAnswersRecord(
+  answers: Record<string, QAAnswer>
+): MonthlyCareCoordinationForm {
   const form = createEmptyForm();
 
   for (const [fieldPath, answer] of Object.entries(answers)) {
@@ -311,7 +389,11 @@ function setFieldValue(
   const [section, field] = parts;
 
   if (type === 'checkbox') {
-    const boolValue = value.toLowerCase() === 'true' || value === '1' || value.toLowerCase() === 'yes' || value.toLowerCase().includes('checked');
+    const boolValue =
+      value.toLowerCase() === 'true' ||
+      value === '1' ||
+      value.toLowerCase() === 'yes' ||
+      value.toLowerCase().includes('checked');
     if (section === 'careCoordinationType') {
       form.careCoordinationType[field as keyof typeof form.careCoordinationType] = boolValue;
     }
@@ -335,7 +417,10 @@ function buildConfidenceScores(answers: Record<string, QAAnswer>): FieldConfiden
 function fillWithRuleBased(transcript: string): QAResult {
   const form = createEmptyForm();
   const answers: Record<string, QAAnswer> = {};
-  const lines = transcript.split('\n').map(line => line.trim()).filter(Boolean);
+  const lines = transcript
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean);
 
   for (const line of lines) {
     const lowerLine = line.toLowerCase();
@@ -392,7 +477,8 @@ function fillWithRuleBased(transcript: string): QAResult {
   };
 
   if (!form.narrative.additionalNotes) {
-    form.narrative.additionalNotes = 'Rule-based extraction used. Please review all fields.\n\n' + transcript.substring(0, 1000);
+    form.narrative.additionalNotes =
+      'Rule-based extraction used. Please review all fields.\n\n' + transcript.substring(0, 1000);
   }
 
   return {
@@ -409,7 +495,10 @@ export function generateQASummary(answers: Record<string, QAAnswer>): string {
 
   // NOTE: recipientName excluded from summary (manual entry only)
   const headerFields = ['header.date', 'header.location'];
-  const headerInfo = headerFields.map(field => answers[field]?.answer).filter(Boolean).join(' | ');
+  const headerInfo = headerFields
+    .map(field => answers[field]?.answer)
+    .filter(Boolean)
+    .join(' | ');
   if (headerInfo) sections.push(`Visit: ${headerInfo}`);
 
   const sih = answers['careCoordinationType.sih']?.answer === 'true';

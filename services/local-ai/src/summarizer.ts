@@ -17,7 +17,11 @@ export interface SummaryResult {
   isFallback?: boolean;
 }
 
-export type ProgressCallback = (progress: { stage: string; message: string; percent: number }) => void;
+export type ProgressCallback = (progress: {
+  stage: string;
+  message: string;
+  percent: number;
+}) => void;
 
 export interface SummarizeOptions {
   onProgress?: ProgressCallback;
@@ -36,7 +40,7 @@ function cleanInputText(text: string): string {
     .replace(/\r\n/g, '\n')
     .replace(/[ \t]+/g, ' ')
     .trim();
-  
+
   // Use 6000 chars for balance between completeness and speed
   return cleaned.substring(0, 6000);
 }
@@ -51,11 +55,11 @@ export async function summarizeCaregiverNotes(
   const { onProgress, context } = options || {};
   const startTime = Date.now();
   logger.info('[SUMMARIZE] Starting...');
-  
+
   setModelBusy(true);
-  
+
   onProgress?.({ stage: 'cleaning', message: 'Preparing text...', percent: 10 });
-  
+
   const cleanedText = cleanInputText(ocrText);
   if (cleanedText.length < 10) {
     return {
@@ -67,7 +71,7 @@ export async function summarizeCaregiverNotes(
       isFallback: true,
     };
   }
-  
+
   // Prompt bodies are user-editable via the Settings UI (Phase 2). Defaults
   // live in defaults/prompts.ts and are seeded into SQLite on first startup.
   // The summarizer reads the current versions here so edits take effect on
@@ -126,7 +130,7 @@ export async function summarizeCaregiverNotes(
         // No retries: streamed progress has already been shown to the user,
         // so a silent retry would reset the bar and confuse them.
         retries: 0,
-        onStream: (chunk) => {
+        onStream: chunk => {
           // Rough token estimate: ~4 chars per token for English.
           // Progress moves 30 -> 90 over the expected token budget, capped at 89
           // so the "parsing" stage gets a distinct bump when generation ends.
@@ -148,33 +152,32 @@ export async function summarizeCaregiverNotes(
     onProgress?.({ stage: 'parsing', message: 'Processing...', percent: 95 });
 
     const rawOutput = data.response?.trim() || '';
-    
-    logger.info('[SUMMARIZE] Complete:', { 
+
+    logger.info('[SUMMARIZE] Complete:', {
       duration: Date.now() - startTime,
-      outputLength: rawOutput.length 
+      outputLength: rawOutput.length,
     });
-    
+
     onProgress?.({ stage: 'complete', message: 'Done!', percent: 100 });
-    
+
     setModelBusy(false);
-    
+
     // Return the raw output as the summary - no parsing needed
     return {
       summary: rawOutput || 'No summary generated.',
       keyPoints: [],
       concerns: [],
       actions: [],
-      rawOutput: rawOutput.substring(0, 2000)
+      rawOutput: rawOutput.substring(0, 2000),
     };
-    
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logger.error('[SUMMARIZE] Failed:', { error: errorMessage });
-    
+
     onProgress?.({ stage: 'error', message: errorMessage, percent: 100 });
-    
+
     setModelBusy(false);
-    
+
     if (errorMessage.includes('fetch') || errorMessage.includes('ECONNREFUSED')) {
       return {
         summary: 'Ollama is not running. Please start Ollama to use AI features.',
@@ -185,7 +188,7 @@ export async function summarizeCaregiverNotes(
         isFallback: true,
       };
     }
-    
+
     if (errorMessage.includes('timeout') || errorMessage.includes('aborted')) {
       return {
         summary: 'AI request timed out. The model may be loading or busy.',
@@ -196,7 +199,7 @@ export async function summarizeCaregiverNotes(
         isFallback: true,
       };
     }
-    
+
     return {
       summary: 'Summary generation failed. Please review the original text.',
       keyPoints: [],

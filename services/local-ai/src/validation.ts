@@ -3,11 +3,11 @@
  * Uses shared validation utilities from @ara/shared
  */
 
-import { 
-  DateTimeUtils, 
-  FormValidator, 
+import {
+  DateTimeUtils,
+  FormValidator,
   FormAccess,
-  type MonthlyCareCoordinationForm, 
+  type MonthlyCareCoordinationForm,
   type FieldPath,
   type ValidationResult,
   type ValidationIssue,
@@ -41,7 +41,9 @@ export function autoFormatTime(value: string): string {
 /**
  * Apply smart defaults to form
  */
-export function applySmartDefaults(form: MonthlyCareCoordinationForm): Partial<MonthlyCareCoordinationForm> {
+export function applySmartDefaults(
+  form: MonthlyCareCoordinationForm
+): Partial<MonthlyCareCoordinationForm> {
   return FormValidator.applySmartDefaults(form);
 }
 
