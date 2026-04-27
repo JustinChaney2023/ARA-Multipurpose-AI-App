@@ -20,7 +20,7 @@
     "dev:service": "npm run -w services/local-ai dev",
     "dev:desktop": "npm run -w apps/desktop tauri dev",
     "dev:web": "npm run -w apps/desktop dev:web",
-    "build": "npm run build --workspaces",
+    "build": "npm run -w packages/shared build && npm run -w apps/desktop build && npm run -w services/local-ai build",
     "build:desktop": "npm run -w apps/desktop tauri build",
     "test": "npm run test --workspaces --if-present",
     "test:coverage": "vitest run --coverage",
