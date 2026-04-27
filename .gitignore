@@ -43,6 +43,9 @@ services/local-ai/data/
 *.db
 *.db-shm
 *.db-wal
+*.db-journal
+*.sqlite
+*.sqlite3
 *.pdf
 !templates/**/*.pdf
 *.jpg
@@ -63,12 +66,33 @@ services/local-ai/data/
 !.env.example
 
 # -----------------------------------------------------------------------------
+# Local AI Assistant / Agent Tooling
+# -----------------------------------------------------------------------------
+.claude/
+.codex/
+.cursor/
+.continue/
+.windsurf/
+.aider*
+.mcp*.json
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+.copilot/
+.openai/
+.anthropic/
+
+# -----------------------------------------------------------------------------
+# Local Documentation Drafts
+# -----------------------------------------------------------------------------
+docs/
+
+# -----------------------------------------------------------------------------
 # IDE & Editors
 # -----------------------------------------------------------------------------
 .vscode/*
 !.vscode/extensions.json
 !.vscode/settings.json
-.claude/settings.local.json
 .idea/
 *.swp
 *.swo
@@ -104,6 +128,8 @@ lerna-debug.log*
 # Testing & Coverage
 # -----------------------------------------------------------------------------
 coverage/
+playwright-report/
+test-results/
 .nyc_output/
 *.lcov
 
@@ -116,6 +142,8 @@ tmp/
 temp/
 *.cache
 .cache/
+.vite/
+.turbo/
 
 # -----------------------------------------------------------------------------
 # OCR / PDF Processing Temp Files
