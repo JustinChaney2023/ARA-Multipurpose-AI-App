@@ -1,5 +1,7 @@
-import { useState, useRef } from 'react';
 import type { ExtractionResult } from '@ara/shared';
+import { useState, useRef } from 'react';
+
+import { Icon } from './Icon';
 import { Tooltip } from './Tooltip';
 
 interface JsonImportProps {
@@ -59,7 +61,7 @@ export function JsonImport({ onImport }: JsonImportProps) {
           onClick={() => fileInputRef.current?.click()}
           style={{ fontSize: '0.875rem', padding: '0.5rem 0.75rem' }}
         >
-          📂 Import JSON
+          <Icon name="import" size={16} /> Import JSON
         </button>
 
         {error && (

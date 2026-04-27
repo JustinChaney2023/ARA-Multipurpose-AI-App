@@ -4,8 +4,9 @@
  */
 
 import type { MonthlyCareCoordinationForm, FieldPath } from '../schema/mccmc_v2.js';
+
 import { DateTimeUtils } from './dateTime.js';
-import { FormAccess, getEmptyRequiredFields, type FieldMetadata } from './formAccess.js';
+import { FormAccess, getEmptyRequiredFields } from './formAccess.js';
 
 // ============================================================================
 // Validation Types
@@ -15,6 +16,8 @@ export type ValidationSeverity = 'error' | 'warning' | 'info';
 
 export interface ValidationIssue {
   path: FieldPath;
+  /** Alias for `path` — used by some consumers that expect `field`. */
+  field?: FieldPath;
   message: string;
   severity: ValidationSeverity;
   code: string;
@@ -243,7 +246,7 @@ export function validateField(
   for (const rule of config.rules) {
     const issue = rule(value, form);
     if (issue) {
-      issues.push({ ...issue, path });
+      issues.push({ ...issue, path, field: path });
     }
   }
 

@@ -10,7 +10,7 @@ import type {
   NarrativeSections,
   Signature,
   FieldPath,
-} from '../schema/mccmc_v2.js';
+ FieldMetadata } from '../schema/mccmc_v2.js';
 
 // ============================================================================
 // Section Types
@@ -103,13 +103,13 @@ export function getFieldValue(
 
   switch (section) {
     case 'header':
-      return getHeaderField(form, field as HeaderField) as string;
+      return getHeaderField(form, field as HeaderField);
     case 'careCoordinationType':
       return getCareTypeField(form, field as CareTypeField) as boolean;
     case 'narrative':
-      return getNarrativeField(form, field as NarrativeField) as string;
+      return getNarrativeField(form, field as NarrativeField);
     case 'signature':
-      return getSignatureField(form, field as SignatureField) as string;
+      return getSignatureField(form, field as SignatureField);
     default:
       throw new Error(`Unknown section: ${section}`);
   }
@@ -144,7 +144,7 @@ export function setFieldValue(
 // Field Metadata (extends schema definition)
 // ============================================================================
 
-import type { FieldMetadata } from '../schema/mccmc_v2.js';
+
 
 export { FieldMetadata };
 

@@ -1,5 +1,8 @@
 import { useState } from 'react';
+
 import { copyToClipboard } from '../utils/clipboard';
+
+import { Icon } from './Icon';
 import { Tooltip } from './Tooltip';
 
 interface CopyButtonProps {
@@ -42,7 +45,7 @@ export function CopyButton({ text, label, size = 'small' }: CopyButtonProps) {
         }}
         disabled={!text}
       >
-        {copied ? '✓' : '📋'}
+        {copied ? <Icon name="check" size={14} color="#166534" /> : <Icon name="copy" size={14} />}
         {label && <span>{copied ? 'Copied' : label}</span>}
       </button>
     </Tooltip>

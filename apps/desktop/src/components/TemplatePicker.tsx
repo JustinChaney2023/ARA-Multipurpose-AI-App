@@ -1,5 +1,8 @@
 import { useState } from 'react';
+
 import { getTemplatesByCategory, type Template, saveCustomTemplate } from '../utils/templates';
+
+import { Icon } from './Icon';
 import { Tooltip } from './Tooltip';
 
 interface TemplatePickerProps {
@@ -53,7 +56,7 @@ export function TemplatePicker({ onSelect }: TemplatePickerProps) {
           onClick={() => setIsOpen(true)}
           style={{ fontSize: '0.875rem', padding: '0.375rem 0.75rem' }}
         >
-          📝 Templates
+          <Icon name="template" size={16} /> Templates
         </button>
       </Tooltip>
 

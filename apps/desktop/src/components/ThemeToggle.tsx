@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
+
 import { getTheme, setTheme, type Theme } from '../utils/theme';
+
+import { Icon } from './Icon';
 import { Tooltip } from './Tooltip';
 
 export function ThemeToggle() {
@@ -16,10 +19,10 @@ export function ThemeToggle() {
     setIsOpen(false);
   };
 
-  const icons = {
-    light: '☀️',
-    dark: '🌙',
-    system: '💻',
+  const icons: Record<Theme, { label: string; iconName: 'sun' | 'moon' | 'monitor' }> = {
+    light: { label: 'Light', iconName: 'sun' },
+    dark: { label: 'Dark', iconName: 'moon' },
+    system: { label: 'System', iconName: 'monitor' },
   };
 
   return (
@@ -36,7 +39,7 @@ export function ThemeToggle() {
             fontSize: '1rem',
           }}
         >
-          {icons[theme]}
+          <Icon name={icons[theme].iconName} size={18} />
         </button>
       </Tooltip>
 
@@ -81,9 +84,7 @@ export function ThemeToggle() {
                   borderRadius: '8px',
                 }}
               >
-                <span>{icons[t]}</span>
-                <span style={{ textTransform: 'capitalize' }}>{t}</span>
-                {theme === t && <span style={{ marginLeft: 'auto' }}>✓</span>}
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Icon name={icons[t].iconName} size={16} /> {icons[t].label}</span>
               </button>
             ))}
           </div>

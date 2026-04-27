@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
+
 import { getHistory, deleteHistoryItem, clearHistory, type HistoryItem, findSimilarText } from '../utils/history';
+
+import { Icon } from './Icon';
 
 interface HistoryPanelProps {
   isOpen: boolean;
@@ -72,7 +75,7 @@ export function HistoryPanel({ isOpen, onClose, onSelect, currentText }: History
           }}
         >
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
-            <span style={{ fontSize: '1.25rem' }}>⚠️</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center' }}><Icon name="warning" size={18} color="#f59e0b" /></span>
             <div style={{ flex: 1 }}>
               <p style={{ margin: '0 0 0.5rem', fontWeight: 500, color: '#92400e' }}>
                 Similar notes detected
@@ -162,7 +165,7 @@ export function HistoryPanel({ isOpen, onClose, onSelect, currentText }: History
 
             {history.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>
-                <p style={{ fontSize: '3rem', margin: '0 0 0.5rem' }}>📝</p>
+                
                 <p>No recent extractions</p>
               </div>
             ) : (
@@ -221,7 +224,7 @@ export function HistoryPanel({ isOpen, onClose, onSelect, currentText }: History
                           }}
                           title="Delete"
                         >
-                          🗑️
+                          <Icon name="trash" size={14} />
                         </button>
                       </div>
                     </div>

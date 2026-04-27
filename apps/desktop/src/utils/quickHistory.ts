@@ -9,6 +9,7 @@ export interface HistoryItem {
   recipientName: string;
   date: string;
   preview: string;
+  result?: ExtractionResult;
 }
 
 export function saveToQuickHistory(result: ExtractionResult): void {
@@ -20,28 +21,30 @@ export function saveToQuickHistory(result: ExtractionResult): void {
       recipientName: result.form.header.recipientName || 'Unknown',
       date: result.form.header.date || new Date().toLocaleDateString(),
       preview: result.rawText?.substring(0, 100) || '',
+      result,
     };
-    
-    // Remove duplicates by recipient+date
-    const filtered = history.filter(h => 
-      !(h.recipientName === newItem.recipientName && h.date === newItem.date)
+
+    const filtered = history.filter(
+      item => !(item.recipientName === newItem.recipientName && item.date === newItem.date)
     );
-    
+
     filtered.unshift(newItem);
     if (filtered.length > MAX_ITEMS) {
       filtered.pop();
     }
-    
+
     localStorage.setItem(HISTORY_KEY, JSON.stringify(filtered));
   } catch {
-    // Ignore storage errors
+    // Ignore storage errors.
   }
 }
 
 export function getQuickHistory(): HistoryItem[] {
   try {
     const stored = localStorage.getItem(HISTORY_KEY);
-    return stored ? JSON.parse(stored) : [];
+    return stored
+      ? (JSON.parse(stored) as HistoryItem[]).filter(item => typeof item?.id === 'string')
+      : [];
   } catch {
     return [];
   }
@@ -56,7 +59,7 @@ export function formatRelativeTime(timestamp: number): string {
   const minutes = Math.floor(diff / 60000);
   const hours = Math.floor(diff / 3600000);
   const days = Math.floor(diff / 86400000);
-  
+
   if (minutes < 1) return 'just now';
   if (minutes < 60) return `${minutes}m ago`;
   if (hours < 24) return `${hours}h ago`;

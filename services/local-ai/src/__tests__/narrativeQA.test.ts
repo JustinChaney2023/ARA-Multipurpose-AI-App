@@ -8,9 +8,9 @@ vi.mock('../questionAnswerer.js', () => ({
   answerSpecificQuestions: vi.fn(),
 }));
 
+import { fillNarrativeWithQA } from '../narrativeQA.js';
 import { checkOllamaHealth } from '../ollama.js';
 import { answerSpecificQuestions } from '../questionAnswerer.js';
-import { fillNarrativeWithQA } from '../narrativeQA.js';
 
 const mockedCheckOllamaHealth = vi.mocked(checkOllamaHealth);
 const mockedAnswerSpecificQuestions = vi.mocked(answerSpecificQuestions);

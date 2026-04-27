@@ -1,21 +1,85 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
 import { type ExtractionResult, type FieldPath, type ConfidenceLevel } from '@ara/shared';
-import { useUndoRedo } from '../hooks/useUndoRedo';
-import { validateForm, autoFormatDate, autoFormatTime, applySmartDefaults, type ValidationState } from '../utils/formValidation';
-import { saveToQuickHistory } from '../utils/quickHistory';
+import { useState, useEffect, useCallback, useRef } from 'react';
+
+import { Icon } from '../components/Icon';
 import { PDFPreview } from '../components/PDFPreview';
 import { QuickHistory } from '../components/QuickHistory';
 import { useKeyboardShortcuts, SHORTCUTS } from '../hooks/useKeyboardShortcuts';
+import { useUndoRedo } from '../hooks/useUndoRedo';
+import { validateForm, autoFormatDate, autoFormatTime, applySmartDefaults, type ValidationState } from '../utils/formValidation';
+import { saveToQuickHistory } from '../utils/quickHistory';
+
+import type { SummaryPayload } from './SummaryScreen';
 
 interface ReviewScreenProps {
   result: ExtractionResult;
   onBack: () => void;
   onNewForm: () => void;
+  /** Phase 4: generate a summary from the manually-filled form and route to SummaryScreen. */
+  onSummarized: (payload: SummaryPayload) => void;
+  /** Phase 3/4: if set, the summary is persisted under this patient. */
+  selectedPatientId?: number;
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
-export function ReviewScreen({ result: initialResult, onBack, onNewForm }: ReviewScreenProps) {
+// ---------------------------------------------------------------------------
+// Sub-components (declared at module level to avoid remount on every render)
+// ---------------------------------------------------------------------------
+
+interface ConfidenceDotProps {
+  field: FieldPath;
+  confidenceMap: Map<string, { confidence: ConfidenceLevel }>;
+}
+
+function ConfidenceDot({ field, confidenceMap }: ConfidenceDotProps) {
+  const level = confidenceMap.get(field)?.confidence || 'low';
+  const colors = { high: '#22c55e', medium: '#f59e0b', low: '#ef4444' };
+  return (
+    <span
+      title={`${level} confidence`}
+      style={{
+        display: 'inline-block',
+        width: 6,
+        height: 6,
+        borderRadius: '50%',
+        background: colors[level],
+        marginLeft: '0.5rem',
+      }}
+    />
+  );
+}
+
+interface ValidationIndicatorProps {
+  field: FieldPath;
+  validation: ValidationState;
+}
+
+function ValidationIndicator({ field, validation }: ValidationIndicatorProps) {
+  const error = validation.errors.find(e => e.field === field);
+  if (error) {
+    return (
+      <span style={{ color: '#dc2626', fontSize: '0.75rem', marginLeft: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+        <Icon name="cross" size={12} color="#dc2626" /> {error.message}
+      </span>
+    );
+  }
+  const warning = validation.warnings.find(w => w.field === field);
+  if (warning) {
+    return (
+      <span style={{ color: '#f59e0b', fontSize: '0.75rem', marginLeft: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+        <Icon name="warning" size={12} color="#f59e0b" /> {warning.message}
+      </span>
+    );
+  }
+  return null;
+}
+
+function cloneExtractionResult(value: ExtractionResult): ExtractionResult {
+  return JSON.parse(JSON.stringify(value)) as ExtractionResult;
+}
+
+export function ReviewScreen({ result: initialResult, onBack, onNewForm, onSummarized, selectedPatientId }: ReviewScreenProps) {
   // Undo/Redo state management
   const { state: result, set: setResult, undo, redo, canUndo, canRedo, reset } = useUndoRedo(initialResult);
   const [showUndoIndicator, setShowUndoIndicator] = useState(false);
@@ -82,20 +146,20 @@ export function ReviewScreen({ result: initialResult, onBack, onNewForm }: Revie
   }, []);
   
   // Validate on form changes (debounced)
-  const validationTimeout = useRef<NodeJS.Timeout>();
+  const validationTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => {
     validationTimeout.current = setTimeout(() => {
       validateCurrentForm();
     }, 500);
-    return () => clearTimeout(validationTimeout.current);
+    return () => {
+      if (validationTimeout.current) {
+        clearTimeout(validationTimeout.current);
+      }
+    };
   }, [result.form]);
 
   const form = result.form;
   const confidenceMap = new Map(result.confidence.map(c => [c.field, c]));
-
-  const getConfidence = (field: FieldPath): ConfidenceLevel => {
-    return confidenceMap.get(field)?.confidence || 'low';
-  };
 
   const validateCurrentForm = async () => {
     setIsValidating(true);
@@ -106,8 +170,8 @@ export function ReviewScreen({ result: initialResult, onBack, onNewForm }: Revie
 
   const updateField = (section: string, field: string, value: string | boolean) => {
     setResult(prev => {
-      const newResult = { ...prev, form: { ...prev.form } };
-      (newResult.form as any)[section][field] = value;
+      const newResult = cloneExtractionResult(prev);
+      (newResult.form as Record<string, Record<string, string | boolean>>)[section][field] = value;
       return newResult;
     });
   };
@@ -120,10 +184,10 @@ export function ReviewScreen({ result: initialResult, onBack, onNewForm }: Revie
   };
 
   // Auto-format date/time on blur with immediate validation
-  const handleDateBlur = async (value: string, field: string) => {
+  const handleDateBlur = async (value: string, field: string, section: 'header' | 'signature' = 'header') => {
     const formatted = await autoFormatDate(value);
     if (formatted !== value && formatted) {
-      updateField('header', field, formatted);
+      updateField(section, field, formatted);
       // Show auto-fix message
       setAutoFixMessage(`Date corrected to ${formatted}`);
       setTimeout(() => setAutoFixMessage(null), 3000);
@@ -139,19 +203,22 @@ export function ReviewScreen({ result: initialResult, onBack, onNewForm }: Revie
     }
   };
 
-  // Smart date input handler - formats common patterns as user types
+  // Smart date input handler - formats common patterns as user types.
+  // When the value looks like a complete date we async-format it and
+  // only write the raw value if formatting fails or returns the same string.
   const handleDateChange = (value: string, field: string) => {
-    // Auto-format if it looks like a complete date
     const looksLikeDate = /^\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}$/.test(value);
     if (looksLikeDate) {
       autoFormatDate(value).then(formatted => {
-        if (formatted !== value && formatted) {
+        if (formatted && formatted !== value) {
           updateField('header', field, formatted);
-          return;
+        } else {
+          updateField('header', field, value);
         }
       });
+    } else {
+      updateField('header', field, value);
     }
-    updateField('header', field, value);
   };
 
   // Undo/Redo with visual feedback
@@ -171,11 +238,11 @@ export function ReviewScreen({ result: initialResult, onBack, onNewForm }: Revie
     setShowResetConfirm(false);
   };
 
-  const handleExportPDF = useCallback(async () => {
+  const handleExportPDF = async () => {
     // Validate before export
     const validationResult = await validateForm(form);
     setValidation(validationResult);
-    
+
     if (!validationResult.valid) {
       // Scroll to first error
       const firstError = validationResult.errors[0];
@@ -188,36 +255,101 @@ export function ReviewScreen({ result: initialResult, onBack, onNewForm }: Revie
 
     setIsExporting(true);
     setExportSuccess(false);
-    
+
     try {
       const response = await fetch(`${API_BASE_URL}/export/pdf`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ form }),
       });
-      
+
       if (!response.ok) throw new Error('Export failed');
-      
+
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = url;
       anchor.download = `care-form-${form.header.recipientName || 'draft'}-${form.header.date || new Date().toISOString().split('T')[0]}.pdf`;
       anchor.click();
-      URL.revokeObjectURL(url);
-      
+      // Delay revocation so Safari has time to start the download.
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+
       setExportSuccess(true);
       setTimeout(() => setExportSuccess(false), 3000);
-      
+
       // Save to history on successful export
       saveToQuickHistory(result);
       setHistoryKey(prev => prev + 1);
-    } catch (error) {
+    } catch {
       alert('Export failed. Please try again.');
     } finally {
       setIsExporting(false);
     }
-  }, [form, validation.valid]);
+  };
+
+  // Convert manually-entered form fields into synthetic caregiver notes
+  // so the summarizer can produce a clean summary from structured input.
+  const formToRawText = useCallback((): string => {
+    const parts: string[] = [];
+    if (form.header.date) parts.push(`Date: ${form.header.date}`);
+    if (form.header.time) parts.push(`Time: ${form.header.time}`);
+    if (form.header.location) parts.push(`Location: ${form.header.location}`);
+    if (form.careCoordinationType.sih) parts.push('Service: Senior In-Home (SIH)');
+    if (form.careCoordinationType.hcbw) parts.push('Service: Home and Community-Based Waiver (HCBW)');
+    if (parts.length > 0) parts.push('');
+
+    if (form.narrative.recipientAndVisitObservations.trim()) {
+      parts.push('Observations:', form.narrative.recipientAndVisitObservations);
+    }
+    if (form.narrative.healthEmotionalStatus.trim()) {
+      parts.push('', 'Health/Emotional Status:', form.narrative.healthEmotionalStatus);
+    }
+    if (form.narrative.reviewOfServices.trim()) {
+      parts.push('', 'Review of Services:', form.narrative.reviewOfServices);
+    }
+    if (form.narrative.progressTowardGoals.trim()) {
+      parts.push('', 'Progress Toward Goals:', form.narrative.progressTowardGoals);
+    }
+    if (form.narrative.additionalNotes.trim()) {
+      parts.push('', 'Additional Notes:', form.narrative.additionalNotes);
+    }
+    if (form.narrative.followUpTasks.trim()) {
+      parts.push('', 'Follow-up Tasks:', form.narrative.followUpTasks);
+    }
+
+    return parts.join('\n');
+  }, [form]);
+
+  const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
+
+  const handleGenerateSummary = async () => {
+    const rawText = formToRawText();
+    if (!rawText.trim()) {
+      alert('Please fill in some narrative fields before generating a summary.');
+      return;
+    }
+
+    setIsGeneratingSummary(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/summarize`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: rawText, patientId: selectedPatientId }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error?.message || 'Summary generation failed');
+      }
+
+      const payload: SummaryPayload = await response.json();
+      onSummarized(payload);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to generate summary');
+    } finally {
+      setIsGeneratingSummary(false);
+    }
+  };
 
   // Keyboard shortcuts (must be after function definitions)
   useKeyboardShortcuts([
@@ -234,36 +366,6 @@ export function ReviewScreen({ result: initialResult, onBack, onNewForm }: Revie
   const narrativeFields = Object.values(form.narrative).filter(v => v && v.length > 20).length;
   const totalFields = 6 + 6;
   const completionPercent = Math.round(((headerFields + narrativeFields) / totalFields) * 100);
-
-  const ConfidenceDot = ({ field }: { field: FieldPath }) => {
-    const level = getConfidence(field);
-    const colors = { high: '#22c55e', medium: '#f59e0b', low: '#ef4444' };
-    return (
-      <span 
-        title={`${level} confidence`}
-        style={{ 
-          display: 'inline-block',
-          width: 6, 
-          height: 6, 
-          borderRadius: '50%', 
-          background: colors[level],
-          marginLeft: '0.5rem',
-        }} 
-      />
-    );
-  };
-
-  const ValidationIndicator = ({ field }: { field: FieldPath }) => {
-    const error = validation.errors.find(e => e.field === field);
-    if (error) {
-      return <span style={{ color: '#dc2626', fontSize: '0.75rem', marginLeft: '0.5rem' }}>✗ {error.message}</span>;
-    }
-    const warning = validation.warnings.find(w => w.field === field);
-    if (warning) {
-      return <span style={{ color: '#f59e0b', fontSize: '0.75rem', marginLeft: '0.5rem' }}>⚠ {warning.message}</span>;
-    }
-    return null;
-  };
 
   return (
     <div className="screen">
@@ -309,8 +411,15 @@ export function ReviewScreen({ result: initialResult, onBack, onNewForm }: Revie
       <QuickHistory 
         key={historyKey}
         onSelect={(item) => {
-          // Could load historical data here
-          console.log('Selected history item:', item);
+          if (!item.result) {
+            setAutoFixMessage('This history item cannot be restored because it was saved before restore support was added.');
+            setTimeout(() => setAutoFixMessage(null), 3000);
+            return;
+          }
+          reset(cloneExtractionResult(item.result));
+          setShowPreview(false);
+          setAutoFixMessage(`Restored form from ${item.recipientName}`);
+          setTimeout(() => setAutoFixMessage(null), 3000);
         }}
       />
 
@@ -371,7 +480,7 @@ export function ReviewScreen({ result: initialResult, onBack, onNewForm }: Revie
             className="btn btn-secondary" 
             onClick={() => setShowPreview(true)}
           >
-            👁 Preview
+            <Icon name="eye" size={16} /> Preview
           </button>
         </div>
       </div>
@@ -379,7 +488,7 @@ export function ReviewScreen({ result: initialResult, onBack, onNewForm }: Revie
       {/* Validation Summary */}
       {!validation.valid && (
         <div className="card" style={{ background: '#fef2f2', borderColor: '#fecaca' }}>
-          <h4 style={{ color: '#dc2626', margin: '0 0 0.5rem' }}>⚠️ Required Fields Missing</h4>
+          <h4 style={{ color: '#dc2626', margin: '0 0 0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Icon name="warning" size={18} color="#dc2626" /> Required Fields Missing</h4>
           <ul style={{ margin: 0, paddingLeft: '1.25rem', color: '#991b1b' }}>
             {validation.errors.map(e => (
               <li key={e.field}>{e.message}</li>
@@ -391,7 +500,7 @@ export function ReviewScreen({ result: initialResult, onBack, onNewForm }: Revie
       {/* Success message */}
       {exportSuccess && (
         <div className="card" style={{ background: '#dcfce7', borderColor: '#86efac' }}>
-          <p style={{ color: '#166534', margin: 0 }}>✓ PDF exported successfully!</p>
+          <p style={{ color: '#166534', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Icon name="check" size={16} color="#166534" /> PDF exported successfully!</p>
         </div>
       )}
 
@@ -399,7 +508,7 @@ export function ReviewScreen({ result: initialResult, onBack, onNewForm }: Revie
       {autoFixMessage && (
         <div className="card" style={{ background: '#eff6ff', borderColor: '#bfdbfe' }}>
           <p style={{ color: '#1e40af', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>✨</span> {autoFixMessage}
+            {autoFixMessage}
           </p>
         </div>
       )}
@@ -426,13 +535,13 @@ export function ReviewScreen({ result: initialResult, onBack, onNewForm }: Revie
       <section className="card">
         <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem', display: 'flex', alignItems: 'center' }}>
           Client Information
-          <ConfidenceDot field="header.recipientName" />
+          <ConfidenceDot field="header.recipientName" confidenceMap={confidenceMap} />
         </h3>
         <div className="form-grid">
           <div className="form-group" data-field="header.recipientName">
             <label className="form-label">
               Recipient Name
-              <ValidationIndicator field="header.recipientName" />
+              <ValidationIndicator field="header.recipientName" validation={validation} />
             </label>
             <input
               type="text"
@@ -447,7 +556,7 @@ export function ReviewScreen({ result: initialResult, onBack, onNewForm }: Revie
           <div className="form-group" data-field="header.date">
             <label className="form-label">
               Date
-              <ValidationIndicator field="header.date" />
+              <ValidationIndicator field="header.date" validation={validation} />
             </label>
             <input
               type="text"
@@ -546,8 +655,8 @@ export function ReviewScreen({ result: initialResult, onBack, onNewForm }: Revie
         <section key={key} className="card" data-field={field}>
           <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.75rem', display: 'flex', alignItems: 'center' }}>
             {title}
-            <ConfidenceDot field={field} />
-            <ValidationIndicator field={field} />
+            <ConfidenceDot field={field} confidenceMap={confidenceMap} />
+            <ValidationIndicator field={field} validation={validation} />
           </h3>
           <textarea
             className="form-textarea"
@@ -581,7 +690,7 @@ export function ReviewScreen({ result: initialResult, onBack, onNewForm }: Revie
               className="form-input"
               value={form.signature.dateSigned}
               onChange={e => updateField('signature', 'dateSigned', e.target.value)}
-              onBlur={e => handleDateBlur(e.target.value, 'dateSigned')}
+              onBlur={e => handleDateBlur(e.target.value, 'dateSigned', 'signature')}
               placeholder="MM/DD/YYYY"
             />
           </div>
@@ -598,14 +707,22 @@ export function ReviewScreen({ result: initialResult, onBack, onNewForm }: Revie
         marginTop: '1rem',
       }}>
         <button className="btn btn-secondary" onClick={onNewForm}>
-          ➕ New Form
+          <Icon name="plus" size={16} /> New Form
         </button>
         <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <button
+            className="btn btn-secondary"
+            onClick={handleGenerateSummary}
+            disabled={isGeneratingSummary}
+            title="Generate a clean summary from the form data"
+          >
+            {isGeneratingSummary ? 'Generating...' : <><Icon name="robot" size={16} /> Generate Summary</>}
+          </button>
           <button 
             className="btn btn-secondary" 
             onClick={() => setShowPreview(true)}
           >
-            👁 Preview
+            <Icon name="eye" size={16} /> Preview
           </button>
           <button 
             className="btn btn-primary" 
@@ -613,7 +730,7 @@ export function ReviewScreen({ result: initialResult, onBack, onNewForm }: Revie
             disabled={isExporting || !validation.valid}
             style={{ minWidth: '150px' }}
           >
-            {isExporting ? 'Exporting...' : !validation.valid ? 'Fix Errors to Export' : '📄 Export PDF'}
+            {isExporting ? 'Exporting...' : !validation.valid ? 'Fix Errors to Export' : <><Icon name="document" size={16} /> Export PDF</>}
           </button>
         </div>
       </div>

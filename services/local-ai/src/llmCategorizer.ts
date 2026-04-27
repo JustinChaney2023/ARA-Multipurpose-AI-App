@@ -4,11 +4,13 @@
  */
 
 import { createEmptyForm } from '@ara/shared';
-import { logger, createProgressTracker } from './logger.js';
+import type { MonthlyCareCoordinationForm } from '@ara/shared';
+
 import { parseLLMJSON, isPlaceholder, cleanPlaceholders } from './jsonUtils.js';
+import { logger, createProgressTracker } from './logger.js';
 import { DEFAULT_MODEL, getModelOptions } from './modelConfig.js';
 import { getOllamaClient } from './ollamaClient.js';
-import type { MonthlyCareCoordinationForm } from '@ara/shared';
+
 
 interface CategorizationResult {
   form: Partial<MonthlyCareCoordinationForm>;
@@ -27,7 +29,7 @@ interface ValidationIssue {
  */
 export async function categorizeAndValidateWithLLM(
   ocrText: string,
-  ocrConfidence: number
+  _ocrConfidence: number
 ): Promise<CategorizationResult> {
   const progress = createProgressTracker('LLM_CATEGORIZER');
   progress.start('Starting LLM categorization');
@@ -84,7 +86,7 @@ Respond with ONLY valid JSON. No other text.`;
   const client = getOllamaClient();
   const data = await client.generate(
     { model: DEFAULT_MODEL, system, prompt, stream: false, options: getModelOptions() },
-    { useCache: true, timeout: 120000 }
+    { timeout: 120000 }
   );
   const rawOutput = data.response?.trim() || '';
   
@@ -108,7 +110,7 @@ Respond with ONLY valid JSON. No other text.`;
  */
 async function validateCategorizedData(
   categorized: { data: Partial<MonthlyCareCoordinationForm> },
-  originalText: string
+  _originalText: string
 ): Promise<{ issues: ValidationIssue[]; corrected: Partial<MonthlyCareCoordinationForm> }> {
   const form = categorized.data;
   const issues: ValidationIssue[] = [];

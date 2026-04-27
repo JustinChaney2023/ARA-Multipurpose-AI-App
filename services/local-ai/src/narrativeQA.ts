@@ -15,14 +15,16 @@ import {
   type FieldPath,
   type QAAnswer,
 } from '@ara/shared';
-import { buildConfidenceFromAnswers } from './utils/confidence.js';
+
+import { config } from './config/index.js';
+import { FORM_QUESTIONS, getQuestionByFieldPath } from './formQuestions.js';
 import { logger, createProgressTracker } from './logger.js';
+import { DEFAULT_MODEL, getModelOptions } from './modelConfig.js';
 import { checkOllamaHealth } from './ollama.js';
 import { getOllamaClient } from './ollamaClient.js';
-import { setModelBusy } from './warmup.js';
-import { DEFAULT_MODEL, getModelOptions } from './modelConfig.js';
-import { FORM_QUESTIONS, getQuestionByFieldPath } from './formQuestions.js';
 import { answerSpecificQuestions } from './questionAnswerer.js';
+import { buildConfidenceFromAnswers } from './utils/confidence.js';
+import { setModelBusy } from './warmup.js';
 
 export interface NarrativeQAResult {
   form: MonthlyCareCoordinationForm;
@@ -54,7 +56,7 @@ interface ExtractedData {
 
 type AnswerRecord = Record<string, QAAnswer>;
 
-type ExtractionStrategy = 'deterministic' | 'single-pass' | 'qa-repair' | 'fallback';
+type _ExtractionStrategy = 'deterministic' | 'single-pass' | 'qa-repair' | 'fallback';
 
 // NOTE: Sensitive PII fields excluded from auto-extraction (HIPAA compliance)
 // recipientName, recipientIdentifier, DOB require manual entry
@@ -161,11 +163,10 @@ export async function fillNarrativeWithQA(
       progress.update(65, `Repairing ${needsRepair.length} field(s)`);
       onProgress?.('repairing', 65);
 
-      const repairedAnswers = await answerSpecificQuestions(cleanedTranscript, needsRepair, (_stage, percent) => {
-        const mappedPercent = 65 + Math.round(percent * 0.25);
-        progress.update(mappedPercent, `Repairing ${needsRepair.length} field(s)`);
-        onProgress?.('repairing', mappedPercent);
-      });
+      const repairedAnswers = await repairFieldsBatch(cleanedTranscript, needsRepair);
+
+      progress.update(88, 'Merging repair results');
+      onProgress?.('repairing', 88);
 
       mergedAnswers = mergeAnswerRecords(mergedAnswers, repairedAnswers, true);
       usedRepair = usedRepair || Object.values(repairedAnswers).some(answer => hasAnswer(answer.answer));
@@ -227,30 +228,31 @@ async function extractAllFields(transcript: string): Promise<ExtractedData> {
     dateSigned: '',
   };
 
-  const systemPrompt = `Extract structured form data from caregiver notes into a single JSON object. Leave empty string for: recipientName, recipientIdentifier, dob, careCoordinatorName, dateSigned.`;
+  const systemPrompt = `Extract structured form data from caregiver notes into a single JSON object. Be concise but complete.`;
 
-  const userPrompt = `Notes:
+  const userPrompt = `Extract form data from these caregiver notes into JSON:
+
 ${transcript}
 
-Extract ALL information. Each fact belongs in exactly one section — use the section that fits best. Include complete sentences; do not summarize or omit details.
+Fields (leave PII fields empty):
+- date: MM/DD/YYYY
+- time: visit time
+- location: visit location
+- sih: true/false for Senior In-Home
+- hcbw: true/false for Home and Community-Based Waiver
+- recipientAndVisitObservations: physical appearance, behavior, home condition, who was present
+- healthEmotionalStatus: symptoms, medications, doctor visits, mood, mental health
+- reviewOfServices: services provided, providers, hours
+- progressTowardGoals: goals achieved, improvements, barriers
+- followUpTasks: coordinator actions needed, appointments, referrals
+- additionalNotes: other important information
 
-Section guide:
-- date: visit date in MM/DD/YYYY format
-- time: time the visit occurred
-- location: where the visit took place
-- sih: true if SIH or Senior In-Home services are mentioned, else false
-- hcbw: true if HCBW or Home and Community-Based Waiver services are mentioned, else false
-- recipientAndVisitObservations: what was observed about the recipient and their environment — physical appearance, activity, behavior during the visit, home/setting condition, who was present, any incidents
-- healthEmotionalStatus: medical and emotional health only — symptoms, diagnoses, medications, doctor or hospital visits, pain, vital signs, mental health, emotional state, mood
-- reviewOfServices: services currently being delivered — personal care, nursing, therapy, transportation, aides, providers, service hours, whether services are working
-- progressTowardGoals: care plan goal progress — specific goals, achievements, improvements, skill development, cooperation with care, barriers to goals
-- followUpTasks: specific actions the care coordinator must take — calls to schedule, appointments to make, referrals, orders, next visit plans
-- additionalNotes: important information not captured above — family dynamics, financial or housing concerns, equipment needs, safety concerns, anything else
-
-JSON:`;
+JSON ONLY:`;
 
   try {
     const client = getOllamaClient();
+    // Reduced timeout for faster CPU inference (30s instead of 90s)
+    const timeout = config.ollama.disabled ? 0 : 30000;
     const result = await client.generate(
       {
         model: DEFAULT_MODEL,
@@ -259,11 +261,12 @@ JSON:`;
         stream: false,
         options: {
           ...getModelOptions(false),
-          num_predict: 2000,
+          // Reduced token limit for faster CPU inference
+          num_predict: 1200,
           temperature: 0.1,
         },
       },
-      { useCache: true, timeout: 90000 }
+      { timeout }
     );
 
     const raw = result.response?.trim() || '';
@@ -291,6 +294,113 @@ JSON:`;
   } catch (e) {
     logger.warn('Combined extraction failed', { error: (e as Error).message });
     return defaults;
+  }
+}
+
+/**
+ * Repair multiple weak fields in a single LLM call instead of one call per field.
+ * Builds a combined prompt listing only the fields that need more detail.
+ */
+async function repairFieldsBatch(
+  transcript: string,
+  fieldPaths: FieldPath[]
+): Promise<AnswerRecord> {
+  const questions = fieldPaths
+    .map(fp => getQuestionByFieldPath(fp))
+    .filter((q): q is NonNullable<typeof q> => Boolean(q));
+
+  if (questions.length === 0) return {};
+
+  const fieldDescriptions = questions.map(q => {
+    const type = q.type === 'textarea' ? 'detailed paragraph' : q.type === 'checkbox' ? 'true/false' : 'short value';
+    return `- "${q.fieldPath}": ${q.question} (${type})`;
+  }).join('\n');
+
+  const systemPrompt = 'Extract specific fields from caregiver notes into JSON. Write detailed, complete answers for narrative fields using all relevant information from the transcript.';
+  const userPrompt = `The following fields need extraction from this transcript. For each field, provide the best answer from the text. Use empty string if not found.
+
+Fields needed:
+${fieldDescriptions}
+
+Transcript:
+"""
+${transcript.substring(0, 6000)}
+"""
+
+Respond with ONLY a JSON object where keys are the field paths and values are the extracted answers. Example:
+{"header.date": "03/15/2024", "narrative.healthEmotionalStatus": "Client reported..."}
+
+JSON:`;
+
+  try {
+    const client = getOllamaClient();
+    // Reduced timeout for faster CPU inference (25s instead of 90s)
+    const timeout = config.ollama.disabled ? 0 : 25000;
+    const result = await client.generate(
+      {
+        model: DEFAULT_MODEL,
+        system: systemPrompt,
+        prompt: userPrompt,
+        stream: false,
+        options: {
+          ...getModelOptions(false),
+          // Reduced token limit for faster CPU inference
+          num_predict: 1000,
+          temperature: 0.1,
+        },
+      },
+      { timeout }
+    );
+
+    const raw = result.response?.trim() || '';
+    const parsed = parseRepairResponse(raw);
+    const answers: AnswerRecord = {};
+
+    for (const q of questions) {
+      const value = parsed[q.fieldPath];
+      if (value && typeof value === 'string' && hasAnswer(value)) {
+        const confidence = q.type === 'textarea'
+          ? narrativeConfidence(value)
+          : 'medium';
+        putAnswer(answers, q.fieldPath, value, confidence, 'batch-repair');
+      }
+    }
+
+    logger.info('Batch repair complete', {
+      requested: fieldPaths.length,
+      filled: Object.keys(answers).length,
+    });
+
+    return answers;
+  } catch (error) {
+    logger.warn('Batch repair failed, falling back to individual Q&A', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+    // Fall back to individual questions if batch fails
+    return answerSpecificQuestions(transcript, fieldPaths);
+  }
+}
+
+function parseRepairResponse(raw: string): Record<string, string> {
+  try {
+    let json = raw;
+    const codeBlockMatch = raw.match(/```json\s*([\s\S]*?)```/i);
+    if (codeBlockMatch) {
+      json = codeBlockMatch[1];
+    } else {
+      const objectMatch = raw.match(/\{[\s\S]*\}/);
+      if (objectMatch) {
+        json = objectMatch[0];
+      }
+    }
+    const parsed = JSON.parse(json);
+    if (typeof parsed === 'object' && parsed !== null) {
+      return parsed as Record<string, string>;
+    }
+    return {};
+  } catch {
+    logger.debug('Failed to parse repair response', { raw: raw.substring(0, 200) });
+    return {};
   }
 }
 
@@ -483,7 +593,8 @@ function buildRepairFieldList(form: MonthlyCareCoordinationForm, answers: Answer
 
   for (const field of NARRATIVE_FIELDS) {
     const answer = answers[field]?.answer || '';
-    if (answer.trim().length < 80) {
+    // Lowered threshold: only repair if nearly empty (saves time on CPU)
+    if (answer.trim().length < 30) {
       fields.add(field);
     }
   }
@@ -529,7 +640,7 @@ function buildFormFromAnswers(answers: AnswerRecord, transcript: string): Monthl
     if (existing && existing.trim().length > 10) return existing;
     
     const sectionKey = `narrative.${field}` as FieldPath;
-    if (extractedSections[sectionKey]) return extractedSections[sectionKey]!;
+    if (extractedSections[sectionKey]) return extractedSections[sectionKey];
     
     return '';
   };
@@ -804,8 +915,7 @@ function getFieldValue(form: MonthlyCareCoordinationForm, fieldPath: FieldPath):
 
 function extractNarrativeSections(transcript: string): Partial<Record<FieldPath, string>> {
   const sections: Partial<Record<FieldPath, string>> = {};
-  const lowerTranscript = transcript.toLowerCase();
-  
+
   // Split transcript into sentences for better processing
   const sentences = transcript.match(/[^.!?]+[.!?]+/g) || [transcript];
   
@@ -962,6 +1072,6 @@ function truncate(value: string, maxLength: number): string {
 }
 
 // Use shared DateTime utilities
-function parseWrittenDate(dateStr: string): string | null {
-  return DateTimeUtils.parseWrittenDate(dateStr);
-}
+// function parseWrittenDate(dateStr: string): string | null {
+//   return DateTimeUtils.parseWrittenDate(dateStr);
+// }

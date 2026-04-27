@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+
 import { getWordCount, getCharCount, formatCount } from '../utils/clipboard';
 
 interface WordCountProps {

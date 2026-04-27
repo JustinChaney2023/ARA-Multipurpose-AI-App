@@ -3,9 +3,10 @@
  * Zod-based validation for all API endpoints
  */
 
-import { z } from 'zod';
+import { Errors, DateTimeUtils } from '@ara/shared';
 import type { Request, Response, NextFunction } from 'express';
-import { AppError, Errors } from '@ara/shared';
+import { z } from 'zod';
+
 import { logger } from '../logger.js';
 
 // ============================================================================
@@ -18,10 +19,8 @@ export const ExtractPDFSchema = z.object({
 
 export const ExtractFillSchema = z.object({
   rawText: z.string().min(1, 'Text is required').max(50000, 'Text too long (max 50KB)'),
-  ocrConfidence: z.number().min(0).max(100).default(50),
 });
 
-import { DateTimeUtils } from '@ara/shared';
 
 // Helper to normalize dates in form data
 function normalizeFormDates(form: any): any {
@@ -87,6 +86,7 @@ export const ExportPDFSchema = z.object({
 
 export const SummarizeSchema = z.object({
   text: z.string().min(1, 'Text is required').max(50000, 'Text too long'),
+  patientId: z.number().int().positive().optional(),
 });
 
 export const ValidateFormSchema = z.object({
@@ -96,6 +96,67 @@ export const ValidateFormSchema = z.object({
 export const FormatFieldSchema = z.object({
   value: z.string(),
   type: z.enum(['date', 'time']),
+});
+
+// ============================================================================
+// Patient / Folder / Session / Summary CRUD Schemas (Phase 3)
+// ============================================================================
+
+export const CreatePatientSchema = z.object({
+  displayName: z.string().min(1, 'Display name is required').max(200, 'Display name too long'),
+});
+
+export const UpdatePatientSchema = z.object({
+  displayName: z.string().min(1, 'Display name is required').max(200, 'Display name too long'),
+});
+
+export const CreateFolderSchema = z.object({
+  name: z.string().min(1, 'Folder name is required').max(200, 'Folder name too long'),
+});
+
+export const UpdateFolderSchema = z.object({
+  name: z.string().min(1, 'Folder name is required').max(200, 'Folder name too long'),
+});
+
+export const LinkPatientFolderSchema = z.object({
+  folderId: z.number().int().positive('Folder ID must be a positive integer'),
+});
+
+export const CreateSessionSchema = z.object({
+  patientId: z.number().int().positive('Patient ID is required'),
+  source: z.enum(['text', 'ocr', 'audio']),
+  rawText: z.string().min(1, 'Raw text is required').max(50000, 'Raw text too long'),
+});
+
+export const MigrateLocalStorageSchema = z.object({
+  items: z.array(
+    z.object({
+      rawText: z.string().min(1),
+      summary: z.string().optional(),
+      timestamp: z.number().optional(),
+      source: z.string().optional(),
+    })
+  ).max(100, 'Too many items to migrate at once'),
+});
+
+// ============================================================================
+// RAG Schemas (Phase 4)
+// ============================================================================
+
+export const EmbedSchema = z.object({
+  text: z.string().min(1).max(10000, 'Text too long for embedding'),
+});
+
+export const RagQuerySchema = z.object({
+  patientId: z.number().int().positive(),
+  query: z.string().min(1).max(10000),
+  k: z.number().int().min(1).max(10).default(3),
+});
+
+export const CreateChatTurnSchema = z.object({
+  patientId: z.number().int().positive('Patient ID is required'),
+  role: z.enum(['user', 'assistant']),
+  body: z.string().min(1).max(10000, 'Message too long'),
 });
 
 // ============================================================================

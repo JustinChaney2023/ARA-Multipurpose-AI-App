@@ -1,12 +1,14 @@
-import { createWorker } from 'tesseract.js';
+import fs from 'fs/promises';
+import os from 'os';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
 import pdfParse from 'pdf-parse';
 import { fromPath } from 'pdf2pic';
-import fs from 'fs/promises';
-import path from 'path';
-import os from 'os';
-import { fileURLToPath } from 'url';
-import { logger, createProgressTracker } from './logger.js';
+import { createWorker } from 'tesseract.js';
+
 import { config } from './config/index.js';
+import { logger, createProgressTracker } from './logger.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -209,11 +211,4 @@ async function extractFromImage(filePath: string, progress: ReturnType<typeof cr
   }
 }
 
-/**
- * Get page count from PDF
- */
-async function getPDFPageCount(filePath: string): Promise<number> {
-  const buffer = await fs.readFile(filePath);
-  const pdfData = await pdfParse(buffer);
-  return pdfData.numpages;
-}
+

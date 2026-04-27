@@ -39,6 +39,10 @@ apps/desktop/dist/
 # Never commit any uploaded files that may contain patient information
 services/local-ai/uploads/
 services/local-ai/temp/
+services/local-ai/data/
+*.db
+*.db-shm
+*.db-wal
 *.pdf
 !templates/**/*.pdf
 *.jpg
@@ -64,6 +68,7 @@ services/local-ai/temp/
 .vscode/*
 !.vscode/extensions.json
 !.vscode/settings.json
+.claude/settings.local.json
 .idea/
 *.swp
 *.swo

@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
-import { getQuickHistory, formatRelativeTime, type HistoryItem } from '../utils/quickHistory';
+import { useEffect, useState } from 'react';
+
+import { formatRelativeTime, getQuickHistory, type HistoryItem } from '../utils/quickHistory';
 
 interface QuickHistoryProps {
   onSelect: (item: HistoryItem) => void;
@@ -19,10 +20,10 @@ export function QuickHistory({ onSelect }: QuickHistoryProps) {
 
   return (
     <div className="card" style={{ background: '#f8fafc' }}>
-      <div 
-        style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
           alignItems: 'center',
           cursor: 'pointer',
         }}
@@ -31,20 +32,23 @@ export function QuickHistory({ onSelect }: QuickHistoryProps) {
         <h3 style={{ fontSize: '0.875rem', fontWeight: 600, margin: 0 }}>
           Recent Forms ({history.length})
         </h3>
-        <span style={{ 
-          transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
-          transition: 'transform 0.2s',
-        }}>
-          ▼
+        <span
+          style={{
+            transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+            transition: 'transform 0.2s',
+          }}
+        >
+          v
         </span>
       </div>
-      
+
       {isExpanded && (
         <div style={{ marginTop: '0.75rem' }}>
-          {history.map((item) => (
+          {history.map(item => (
             <button
               key={item.id}
-              onClick={() => onSelect(item)}
+              onClick={() => item.result && onSelect(item)}
+              disabled={!item.result}
               style={{
                 display: 'block',
                 width: '100%',
@@ -54,8 +58,9 @@ export function QuickHistory({ onSelect }: QuickHistoryProps) {
                 background: 'white',
                 border: '1px solid var(--color-border)',
                 borderRadius: '6px',
-                cursor: 'pointer',
+                cursor: item.result ? 'pointer' : 'not-allowed',
                 fontSize: '0.875rem',
+                opacity: item.result ? 1 : 0.6,
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -67,6 +72,11 @@ export function QuickHistory({ onSelect }: QuickHistoryProps) {
               <div style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem', marginTop: '0.25rem' }}>
                 {item.date}
               </div>
+              {!item.result && (
+                <div style={{ color: 'var(--color-text-muted)', fontSize: '0.7rem', marginTop: '0.25rem' }}>
+                  Restore unavailable for older entries
+                </div>
+              )}
             </button>
           ))}
         </div>

@@ -2,8 +2,8 @@
  * Model warmup module - Preloads the AI model to reduce latency on first request
  */
 
-import { logger } from './logger.js';
 import { config } from './config/index.js';
+import { logger } from './logger.js';
 import { 
   DEFAULT_MODEL, 
   OLLAMA_BASE_URL, 

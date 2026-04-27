@@ -1,9 +1,8 @@
 /**
- * Optimized Ollama Client with Connection Pooling and Response Caching
- * 
+ * Optimized Ollama Client with Connection Pooling
+ *
  * Features:
  * - HTTP connection pooling for faster repeated requests
- * - Response caching for similar prompts
  * - GPU layer auto-detection
  * - Streaming support
  * - Request retry with exponential backoff
@@ -11,7 +10,6 @@
 
 import { config } from './config/index.js';
 import { logger } from './logger.js';
-import crypto from 'crypto';
 
 // ============================================================================
 // Types
@@ -24,6 +22,11 @@ interface OllamaRequest {
   images?: string[];
   stream?: boolean;
   options?: Record<string, unknown>;
+  // qwen3 and other reasoning-capable models default to emitting a <think>
+  // block before the answer. On CPU that roughly doubles latency for no
+  // user-visible benefit when we want fast structured output. Pass think:false
+  // to skip the reasoning phase entirely.
+  think?: boolean;
 }
 
 interface OllamaResponse {
@@ -38,10 +41,8 @@ interface OllamaResponse {
   eval_duration?: number;
 }
 
-interface CacheEntry {
-  response: string;
-  timestamp: number;
-  hitCount: number;
+interface OllamaEmbedResponse {
+  embedding: number[];
 }
 
 interface GPUInfo {
@@ -49,99 +50,6 @@ interface GPUInfo {
   vramGB: number;
   name?: string;
   recommendedLayers: number;
-}
-
-// ============================================================================
-// Response Cache
-// ============================================================================
-
-class ResponseCache {
-  private cache = new Map<string, CacheEntry>();
-  private accessOrder: string[] = [];
-
-  get(key: string): string | null {
-    if (!config.ollama.cache.enabled) return null;
-
-    const entry = this.cache.get(key);
-    if (!entry) return null;
-
-    // Check TTL
-    const age = Date.now() - entry.timestamp;
-    if (age > config.ollama.cache.ttl) {
-      this.cache.delete(key);
-      this.removeFromAccessOrder(key);
-      return null;
-    }
-
-    // Update hit count and access order
-    entry.hitCount++;
-    this.updateAccessOrder(key);
-    
-    logger.debug('Cache hit', { key: key.substring(0, 16) + '...', hits: entry.hitCount });
-    return entry.response;
-  }
-
-  set(key: string, response: string): void {
-    if (!config.ollama.cache.enabled) return;
-
-    // Evict oldest if at capacity
-    if (this.cache.size >= config.ollama.cache.maxSize) {
-      this.evictLRU();
-    }
-
-    this.cache.set(key, {
-      response,
-      timestamp: Date.now(),
-      hitCount: 0,
-    });
-    this.accessOrder.push(key);
-
-    logger.debug('Cache set', { key: key.substring(0, 16) + '...', size: this.cache.size });
-  }
-
-  clear(): void {
-    this.cache.clear();
-    this.accessOrder = [];
-    logger.debug('Cache cleared');
-  }
-
-  getStats(): { size: number; maxSize: number; hitRate: number } {
-    let totalHits = 0;
-    let totalRequests = 0;
-    
-    for (const entry of this.cache.values()) {
-      totalHits += entry.hitCount;
-      totalRequests += entry.hitCount + 1;
-    }
-
-    return {
-      size: this.cache.size,
-      maxSize: config.ollama.cache.maxSize,
-      hitRate: totalRequests > 0 ? totalHits / totalRequests : 0,
-    };
-  }
-
-  private removeFromAccessOrder(key: string): void {
-    const index = this.accessOrder.indexOf(key);
-    if (index > -1) {
-      this.accessOrder.splice(index, 1);
-    }
-  }
-
-  private updateAccessOrder(key: string): void {
-    this.removeFromAccessOrder(key);
-    this.accessOrder.push(key);
-  }
-
-  private evictLRU(): void {
-    if (this.accessOrder.length === 0) return;
-    
-    const oldest = this.accessOrder.shift();
-    if (oldest) {
-      this.cache.delete(oldest);
-      logger.debug('Cache eviction', { key: oldest.substring(0, 16) + '...' });
-    }
-  }
 }
 
 // ============================================================================
@@ -161,7 +69,7 @@ async function detectGPU(): Promise<GPUInfo> {
   }
 
   try {
-    // Check Ollama's GPU detection via /api/tags or ps
+    // Check Ollama's GPU detection via /api/ps
     const response = await fetch(`${config.ollama.baseUrl}/api/ps`, {
       method: 'GET',
       signal: AbortSignal.timeout(5000),
@@ -171,24 +79,52 @@ async function detectGPU(): Promise<GPUInfo> {
       return defaultInfo;
     }
 
-    const data = await response.json() as { models?: Array<{ size?: number; name?: string }> };
-    
-    // If Ollama has models loaded, it detected a GPU
-    if (data.models && data.models.length > 0) {
-      // Estimate VRAM from loaded model sizes
-      let totalSize = 0;
-      for (const model of data.models) {
-        totalSize += model.size || 0;
+    const data = await response.json() as { 
+      models?: Array<{ 
+        size?: number; 
+        name?: string;
+        details?: { 
+          family?: string;
+          families?: string[];
+        };
+      }>;
+      // Ollama ps may include processor info in newer versions
+      processors?: Array<{ type: string; count: number }>;
+    };
+
+    // Check if Ollama reports GPU processors
+    if (data.processors && data.processors.length > 0) {
+      const gpuProcessor = data.processors.find(p => 
+        p.type.toLowerCase().includes('gpu') || 
+        p.type.toLowerCase().includes('cuda') ||
+        p.type.toLowerCase().includes('metal') ||
+        p.type.toLowerCase().includes('rocm')
+      );
+      
+      if (gpuProcessor && gpuProcessor.count > 0) {
+        return {
+          available: true,
+          vramGB: 8, // Assume at least 8GB if GPU detected
+          recommendedLayers: -1,
+        };
       }
-      
-      // Rough estimate: if models are loaded, assume at least 4GB VRAM
-      const vramGB = Math.max(4, Math.ceil(totalSize / (1024 * 1024 * 1024)));
-      
-      return {
-        available: true,
-        vramGB,
-        recommendedLayers: -1, // Let Ollama decide
-      };
+    }
+
+    // Fallback: check if any model is loaded and whether it's using GPU
+    if (data.models && data.models.length > 0) {
+      // Check if loaded model reports GPU layers (Ollama includes size_vram in newer versions)
+      const loadedModel = data.models[0] as { size_vram?: number; size?: number };
+      if (loadedModel.size_vram && loadedModel.size_vram > 0) {
+        return {
+          available: true,
+          vramGB: Math.round(loadedModel.size_vram / (1024 * 1024 * 1024)),
+          recommendedLayers: -1,
+        };
+      }
+
+      // No VRAM reported — likely CPU-only
+      logger.debug('No GPU VRAM reported by Ollama, assuming CPU inference');
+      return defaultInfo;
     }
 
     return defaultInfo;
@@ -197,13 +133,19 @@ async function detectGPU(): Promise<GPUInfo> {
   }
 }
 
-function calculateGpuLayers(vramGB: number, modelSizeGB: number): number {
-  // Rough heuristic: ~100MB per layer for 4B models, ~200MB for 7B, etc.
-  // Leave 1GB headroom for other operations
-  const availableVRAM = (vramGB - 1) * 1024; // Convert to MB
-  const mbPerLayer = modelSizeGB < 5 ? 100 : modelSizeGB < 10 ? 200 : 300;
-  
-  return Math.floor(availableVRAM / mbPerLayer);
+/**
+ * Check if Ollama is running on CPU only
+ * This is a best-effort check based on platform knowledge
+ */
+export function isCPUOnlyMode(): boolean {
+  // On Windows without NVIDIA GPU, Ollama always runs on CPU
+  // Intel/AMD GPUs are not supported on Windows
+  if (process.platform === 'win32') {
+    // Could check for CUDA DLL presence, but that's complex
+    // For now, return false and let actual GPU detection handle it
+    return false;
+  }
+  return false;
 }
 
 // ============================================================================
@@ -239,19 +181,17 @@ class ConnectionPool {
 // ============================================================================
 
 export class OllamaClient {
-  private cache: ResponseCache;
   private pool: ConnectionPool;
   private gpuInfo: GPUInfo | null = null;
 
   constructor() {
-    this.cache = new ResponseCache();
     this.pool = new ConnectionPool();
     this.initializeGPU();
   }
 
   private async initializeGPU(): Promise<void> {
     this.gpuInfo = await detectGPU();
-    
+
     if (this.gpuInfo.available) {
       logger.info('GPU detected for Ollama', {
         vramGB: this.gpuInfo.vramGB,
@@ -263,53 +203,35 @@ export class OllamaClient {
   }
 
   /**
-   * Generate text with caching and retry logic
+   * Generate text with retry logic
    */
   async generate(
     request: OllamaRequest,
-    options: { 
-      useCache?: boolean; 
+    options: {
       timeout?: number;
       stream?: boolean;
       onStream?: (chunk: string) => void;
+      retries?: number;
     } = {}
   ): Promise<OllamaResponse> {
-    const { useCache = true, timeout = config.ollama.timeout, stream = false } = options;
-    
-    // Build cache key from request
-    const cacheKey = useCache ? this.buildCacheKey(request) : null;
-    
-    // Check cache
-    if (cacheKey) {
-      const cached = this.cache.get(cacheKey);
-      if (cached) {
-        return {
-          response: cached,
-          done: true,
-        };
-      }
-    }
+    const { timeout = config.ollama.timeout, stream = false } = options;
 
     // Build optimized request with GPU settings
     const optimizedRequest = this.buildOptimizedRequest(request);
 
-    // Execute with retry logic
+    // Execute with retry logic. Streaming callers can pass retries: 0 to fail
+    // fast — retrying a streamed request throws away the tokens we already
+    // rendered progress for, and the user sees the bar reset without warning.
     let lastError: Error | null = null;
-    const maxRetries = config.ollama.maxRetries;
+    const maxRetries = options.retries ?? config.ollama.maxRetries;
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         const response = await this.executeRequest(optimizedRequest, timeout, stream, options.onStream);
-        
-        // Cache successful response
-        if (cacheKey && !stream) {
-          this.cache.set(cacheKey, response.response);
-        }
-
         return response;
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
-        
+
         if (attempt < maxRetries) {
           const delay = Math.min(1000 * Math.pow(2, attempt), 10000); // Exponential backoff, max 10s
           logger.warn(`Ollama request failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${delay}ms`, {
@@ -326,7 +248,7 @@ export class OllamaClient {
   /**
    * Check if Ollama is healthy and get GPU status
    */
-  async healthCheck(): Promise<{ healthy: boolean; gpu: GPUInfo; cached: boolean }> {
+  async healthCheck(): Promise<{ healthy: boolean; gpu: GPUInfo }> {
     try {
       const response = await fetch(`${config.ollama.baseUrl}/api/tags`, {
         method: 'GET',
@@ -336,29 +258,70 @@ export class OllamaClient {
       return {
         healthy: response.ok,
         gpu: this.gpuInfo || { available: false, vramGB: 0, recommendedLayers: 0 },
-        cached: config.ollama.cache.enabled,
       };
     } catch {
       return {
         healthy: false,
         gpu: this.gpuInfo || { available: false, vramGB: 0, recommendedLayers: 0 },
-        cached: config.ollama.cache.enabled,
       };
     }
   }
 
   /**
-   * Get cache statistics
+   * Generate an embedding vector for a piece of text.
+   * Uses Ollama's /api/embeddings endpoint.
    */
-  getCacheStats(): { size: number; maxSize: number; hitRate: number } {
-    return this.cache.getStats();
-  }
+  async embed(
+    text: string,
+    model: string,
+    options: { timeout?: number; retries?: number } = {}
+  ): Promise<number[]> {
+    const { timeout = config.ollama.timeout, retries = config.ollama.maxRetries } = options;
 
-  /**
-   * Clear response cache
-   */
-  clearCache(): void {
-    this.cache.clear();
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        const poolOptions = await this.pool.getFetchOptions();
+        const response = await fetch(`${config.ollama.baseUrl}/api/embeddings`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model, prompt: text }),
+          signal: AbortSignal.timeout(timeout),
+          ...poolOptions,
+        });
+
+        if (!response.ok) {
+          const rawError = await response.text();
+          // 404 = model not found; don't waste time retrying.
+          if (response.status === 404) {
+            throw new Error(`Embedding model "${model}" not found. Run: ollama pull ${model}`);
+          }
+          throw new Error(`Ollama embed failed: ${response.status} ${rawError.substring(0, 200)}`);
+        }
+
+        const data = (await response.json()) as OllamaEmbedResponse;
+        if (!data.embedding || !Array.isArray(data.embedding)) {
+          throw new Error('Ollama embed returned invalid embedding array');
+        }
+        return data.embedding;
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        // Don't retry on model-not-found (user needs to pull it first).
+        if (lastError.message.includes('not found') && lastError.message.includes('Run: ollama pull')) {
+          throw lastError;
+        }
+        if (attempt < retries) {
+          const delay = Math.min(1000 * Math.pow(2, attempt), 10000);
+          logger.warn(`Ollama embed failed (attempt ${attempt + 1}/${retries + 1}), retrying in ${delay}ms`, {
+            error: lastError.message,
+          });
+          await this.sleep(delay);
+        }
+      }
+    }
+
+    throw lastError || new Error('Ollama embed failed after retries');
   }
 
   /**
@@ -368,28 +331,8 @@ export class OllamaClient {
     this.pool.destroy();
   }
 
-  private buildCacheKey(request: OllamaRequest): string {
-    // Normalize prompt for caching (remove extra whitespace)
-    const normalizedPrompt = (request.prompt || '').trim().replace(/\s+/g, ' ');
-    const normalizedSystem = (request.system || '').trim().replace(/\s+/g, ' ');
-    
-    // Hash image content (not just count) so identical images get cache hits
-    const imageHash = request.images && request.images.length > 0
-      ? crypto.createHash('sha256').update(request.images.join('')).digest('hex').substring(0, 16)
-      : null;
-
-    const keyData = {
-      model: request.model,
-      prompt: normalizedPrompt,
-      system: normalizedSystem,
-      imageHash,
-    };
-
-    return crypto.createHash('sha256').update(JSON.stringify(keyData)).digest('hex');
-  }
-
   private buildOptimizedRequest(request: OllamaRequest): OllamaRequest {
-    const numGpuLayers = config.ollama.gpu.numGpuLayers === -1 
+    const numGpuLayers = config.ollama.gpu.numGpuLayers === -1
       ? (this.gpuInfo?.recommendedLayers || 0)
       : config.ollama.gpu.numGpuLayers;
 
@@ -401,7 +344,7 @@ export class OllamaClient {
         num_gpu: numGpuLayers,
         main_gpu: config.ollama.gpu.mainGpu,
         ...(config.ollama.gpu.tensorSplit && { tensor_split: config.ollama.gpu.tensorSplit }),
-        
+
         // Performance settings from config
         num_thread: config.ollama.performance.numThread,
         num_batch: config.ollama.performance.numBatch,
@@ -411,7 +354,7 @@ export class OllamaClient {
         repeat_penalty: config.ollama.performance.repeatPenalty,
         frequency_penalty: config.ollama.performance.frequencyPenalty,
         presence_penalty: config.ollama.performance.presencePenalty,
-        
+
         // Keep model loaded
         keep_alive: '10m',
       },
@@ -419,13 +362,13 @@ export class OllamaClient {
   }
 
   private async executeRequest(
-    request: OllamaRequest, 
+    request: OllamaRequest,
     timeout: number,
     stream: boolean,
     onStream?: (chunk: string) => void
   ): Promise<OllamaResponse> {
     const poolOptions = await this.pool.getFetchOptions();
-    
+
     const response = await fetch(`${config.ollama.baseUrl}/api/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -448,7 +391,7 @@ export class OllamaClient {
   }
 
   private async handleStreamingResponse(
-    response: Response, 
+    response: Response,
     onStream: (chunk: string) => void
   ): Promise<OllamaResponse> {
     const reader = response.body?.getReader();
@@ -457,6 +400,7 @@ export class OllamaClient {
     }
 
     let fullResponse = '';
+    let pending = '';
     const decoder = new TextDecoder();
 
     try {
@@ -464,22 +408,35 @@ export class OllamaClient {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n').filter(line => line.trim());
+        pending += decoder.decode(value, { stream: true });
+        const lines = pending.split('\n');
+        pending = lines.pop() ?? '';
 
         for (const line of lines) {
-          try {
-            const data = JSON.parse(line) as OllamaResponse;
-            if (data.response) {
-              fullResponse += data.response;
-              onStream(data.response);
-            }
-            if (data.done) {
-              return { ...data, response: fullResponse };
-            }
-          } catch {
-            // Skip malformed JSON lines
+          if (!line.trim()) {
+            continue;
           }
+
+          const data = JSON.parse(line) as OllamaResponse;
+          if (data.response) {
+            fullResponse += data.response;
+            onStream(data.response);
+          }
+          if (data.done) {
+            return { ...data, response: fullResponse };
+          }
+        }
+      }
+
+      const finalLine = pending.trim();
+      if (finalLine) {
+        const data = JSON.parse(finalLine) as OllamaResponse;
+        if (data.response) {
+          fullResponse += data.response;
+          onStream(data.response);
+        }
+        if (data.done) {
+          return { ...data, response: fullResponse };
         }
       }
     } finally {

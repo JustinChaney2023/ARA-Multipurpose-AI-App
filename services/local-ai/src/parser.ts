@@ -6,10 +6,11 @@ import {
   type ConfidenceLevel,
   type FieldPath,
 } from '@ara/shared';
-import { generateFormWithLLM, checkOllamaHealth, markLLMFailed, isMultimodalModel } from './ollama.js';
+
+import { parseLLMJSON } from './jsonUtils.js';
 import { categorizeAndValidateWithLLM } from './llmCategorizer.js';
 import { logger, createProgressTracker } from './logger.js';
-import { parseLLMJSON } from './jsonUtils.js';
+import { generateFormWithLLM, checkOllamaHealth, markLLMFailed, isMultimodalModel } from './ollama.js';
 
 export interface ParseResult {
   form: MonthlyCareCoordinationForm;

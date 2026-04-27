@@ -1,17 +1,16 @@
 /**
  * Ollama integration for local LLM processing
  * Supports multimodal models for handwriting recognition
- * 
+ *
  * Optimizations:
  * - Connection pooling for faster requests
- * - Response caching for similar prompts
  * - GPU layer auto-detection
  * - Streaming support
  * - Exponential backoff retry
  */
 
-import { MonthlyCareCoordinationFormSchema, type MonthlyCareCoordinationForm, Errors, AppError } from '@ara/shared';
 import fs from 'fs/promises';
+
 import { config } from './config/index.js';
 import { logger } from './logger.js';
 import { getOllamaClient } from './ollamaClient.js';
@@ -104,7 +103,6 @@ JSON OUTPUT:`;
       options: getModelOptions(false),
     }, {
       timeout: config.ollama.timeout,
-      useCache: true,
     });
 
     return result.response;
@@ -121,14 +119,14 @@ JSON OUTPUT:`;
 async function generateWithVision(imagePath: string, ocrText?: string): Promise<string> {
   const imageBuffer = await fs.readFile(imagePath);
   const base64Image = imageBuffer.toString('base64');
-  
+
   const ocrHint = ocrText ? `\nOCR hint: ${ocrText.substring(0, 500)}` : '';
-  
+
   const prompt = `Look at this handwritten form image and extract data into JSON.${ocrHint}
 
 Extract ONLY (leave sensitive fields empty):
 - Date (MM/DD/YYYY), Time, Location - operational details only
-- SIH: true/false, HCBW: true/false  
+- SIH: true/false, HCBW: true/false
 - All handwritten narrative notes
 
 DO NOT EXTRACT (leave empty for manual entry):
@@ -139,9 +137,9 @@ Return ONLY JSON like:
 {"header":{"recipientName":"","date":"...","time":"...","recipientIdentifier":"","dob":"","location":"..."},"careCoordinationType":{"sih":false,"hcbw":false},"narrative":{"recipientAndVisitObservations":"...","healthEmotionalStatus":"...","reviewOfServices":"...","progressTowardGoals":"...","additionalNotes":"...","followUpTasks":"..."},"signature":{"careCoordinatorName":"","signature":"","dateSigned":""}}
 
 JSON OUTPUT:`;
-  
+
   const client = getOllamaClient();
-  
+
   try {
     const result = await client.generate({
       model: config.ollama.model,
@@ -151,7 +149,6 @@ JSON OUTPUT:`;
       options: getModelOptions(true),
     }, {
       timeout: config.ollama.visionTimeout,
-      useCache: true, // Cache by image content hash
     });
 
     return result.response;
@@ -198,7 +195,6 @@ export async function generateWithStreaming(
     stream: true,
     onStream: onChunk,
     timeout,
-    useCache: true, // Cache by image content hash for vision, transcript content for text
   });
   
   return result.response;
@@ -262,23 +258,6 @@ export async function listModels(): Promise<string[]> {
   } catch {
     return [];
   }
-}
-
-/**
- * Get cache statistics for monitoring
- */
-export function getCacheStats(): { size: number; maxSize: number; hitRate: number } {
-  const client = getOllamaClient();
-  return client.getCacheStats();
-}
-
-/**
- * Clear the response cache
- */
-export function clearLLMCache(): void {
-  const client = getOllamaClient();
-  client.clearCache();
-  logger.info('LLM response cache cleared');
 }
 
 /**

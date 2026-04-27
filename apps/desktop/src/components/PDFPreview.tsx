@@ -1,5 +1,5 @@
-import { useState } from 'react';
 import type { ExtractionResult } from '@ara/shared';
+import { useEffect, useState } from 'react';
 
 interface PDFPreviewProps {
   form: ExtractionResult['form'];
@@ -7,29 +7,49 @@ interface PDFPreviewProps {
   onClose: () => void;
 }
 
+function base64ToBlobUrl(base64: string): string {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+}
+
 export function PDFPreview({ form, isOpen, onClose }: PDFPreviewProps) {
   const [loading, setLoading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
+
   const generatePreview = async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/export/preview`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ form }),
       });
-      
-      if (!response.ok) throw new Error('Preview generation failed');
-      
-      const data = await response.json();
-      const blob = new Blob([Buffer.from(data.preview, 'base64')], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
-      setPreviewUrl(url);
-    } catch (err) {
+
+      if (!response.ok) {
+        throw new Error('Preview generation failed');
+      }
+
+      const data = await response.json() as { preview: string };
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+      setPreviewUrl(base64ToBlobUrl(data.preview));
+    } catch {
       setError('Failed to generate preview');
     } finally {
       setLoading(false);
@@ -39,7 +59,7 @@ export function PDFPreview({ form, isOpen, onClose }: PDFPreviewProps) {
   if (!isOpen) return null;
 
   return (
-    <div 
+    <div
       style={{
         position: 'fixed',
         inset: 0,
@@ -52,9 +72,9 @@ export function PDFPreview({ form, isOpen, onClose }: PDFPreviewProps) {
       }}
       onClick={onClose}
     >
-      <div 
+      <div
         style={{
-          background: 'white',
+          background: 'var(--color-surface)',
           borderRadius: '12px',
           maxWidth: '900px',
           width: '100%',
@@ -65,16 +85,17 @@ export function PDFPreview({ form, isOpen, onClose }: PDFPreviewProps) {
         }}
         onClick={e => e.stopPropagation()}
       >
-        {/* Header */}
-        <div style={{ 
-          padding: '1rem 1.5rem', 
-          borderBottom: '1px solid var(--color-border)',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}>
+        <div
+          style={{
+            padding: '1rem 1.5rem',
+            borderBottom: '1px solid var(--color-border)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
           <h3 style={{ margin: 0 }}>PDF Preview</h3>
-          <button 
+          <button
             onClick={onClose}
             style={{
               background: 'none',
@@ -84,11 +105,10 @@ export function PDFPreview({ form, isOpen, onClose }: PDFPreviewProps) {
               color: 'var(--color-text-muted)',
             }}
           >
-            ×
+            �
           </button>
         </div>
-        
-        {/* Content */}
+
         <div style={{ flex: 1, overflow: 'auto', padding: '1rem' }}>
           {!previewUrl && !loading && !error && (
             <div style={{ textAlign: 'center', padding: '3rem' }}>
@@ -100,14 +120,14 @@ export function PDFPreview({ form, isOpen, onClose }: PDFPreviewProps) {
               </button>
             </div>
           )}
-          
+
           {loading && (
             <div style={{ textAlign: 'center', padding: '3rem' }}>
               <div className="spinner" style={{ width: 40, height: 40, margin: '0 auto 1rem' }} />
               <p>Generating preview...</p>
             </div>
           )}
-          
+
           {error && (
             <div style={{ textAlign: 'center', padding: '3rem', color: '#dc2626' }}>
               <p>{error}</p>
@@ -116,13 +136,13 @@ export function PDFPreview({ form, isOpen, onClose }: PDFPreviewProps) {
               </button>
             </div>
           )}
-          
+
           {previewUrl && (
             <iframe
               src={previewUrl}
-              style={{ 
-                width: '100%', 
-                height: '600px', 
+              style={{
+                width: '100%',
+                height: '600px',
                 border: '1px solid var(--color-border)',
                 borderRadius: '8px',
               }}

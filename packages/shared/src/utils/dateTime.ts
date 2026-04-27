@@ -53,7 +53,7 @@ export function normalizeDate(value: string): string {
   // ISO format: YYYY-MM-DD or YYYY/MM/DD
   const isoMatch = trimmed.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})$/);
   if (isoMatch) {
-    let [, year, month, day] = isoMatch;
+    const [, year, month, day] = isoMatch;
     let monthNum = parseInt(month, 10);
     let dayNum = parseInt(day, 10);
     
@@ -72,9 +72,9 @@ export function normalizeDate(value: string): string {
   // European format: DD-MM-YYYY or DD.MM.YYYY (detect by first number > 12)
   const euroMatch = trimmed.match(/^(\d{1,2})[.\-](\d{1,2})[.\-](\d{4})$/);
   if (euroMatch) {
-    let [, first, second, year] = euroMatch;
-    let firstNum = parseInt(first, 10);
-    let secondNum = parseInt(second, 10);
+    const [, first, second, year] = euroMatch;
+    const firstNum = parseInt(first, 10);
+    const secondNum = parseInt(second, 10);
     
     // If first number > 12, it's likely day (European format)
     if (firstNum > 12) {

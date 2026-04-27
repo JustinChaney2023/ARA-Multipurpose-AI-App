@@ -4,6 +4,7 @@
  */
 
 import { z } from 'zod';
+
 import { logger } from '../logger.js';
 
 // ============================================================================
@@ -21,12 +22,18 @@ const ConfigSchema = z.object({
   // Ollama / LLM settings
   ollama: z.object({
     baseUrl: z.string().url().default('http://localhost:11434'),
-    model: z.string().default('qwen2.5:0.5b'),
+    // Fallback when OLLAMA_MODEL is not set. Matches the repo's recommended
+    // model (see CLAUDE.md and docs/ollama-models.md). Keep this aligned —
+    // if a user has no .env, we want them on a capable model, not the tiny default.
+    model: z.string().default('qwen3:4b-q4_K_M'),
+    // Embedding model for RAG vector search. nomic-embed-text is local, fast
+    // on CPU, and produces 768-dimensional vectors. Must be pulled separately.
+    embedModel: z.string().default('nomic-embed-text'),
     timeout: z.number().default(60000), // 60s default
     visionTimeout: z.number().default(120000), // 2min for vision
     maxRetries: z.number().default(2),
     temperature: z.number().default(0.1),
-    numCtx: z.number().default(4096),
+    numCtx: z.number().default(8192),
     disabled: z.boolean().default(false),
     // GPU optimization settings
     gpu: z.object({
@@ -45,12 +52,6 @@ const ConfigSchema = z.object({
       repeatPenalty: z.number().default(1.0),
       frequencyPenalty: z.number().default(0.0),
       presencePenalty: z.number().default(0.0),
-    }).default({}),
-    // Caching settings
-    cache: z.object({
-      enabled: z.boolean().default(true),
-      ttl: z.number().default(300000), // 5 minutes
-      maxSize: z.number().default(100), // max cached responses
     }).default({}),
     // Connection pooling
     pool: z.object({
@@ -95,6 +96,15 @@ const ConfigSchema = z.object({
     keepAliveInterval: z.number().default(60000), // 1 minute
     initialDelay: z.number().default(1000), // 1 second after startup
   }),
+
+  // Local SQLite persistence (Phase 3). Service-owned so the DB lives with
+  // the LLM for future RAG work — see docs/refactor/phase-3-persistence.md.
+  db: z.object({
+    // Default path is relative to the service working dir; resolved to absolute
+    // at connection time. Override via DB_PATH env var for tests or external
+    // drives.
+    path: z.string().default('data/ara.db'),
+  }).default({}),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -104,6 +114,9 @@ export type Config = z.infer<typeof ConfigSchema>;
 // ============================================================================
 
 function loadConfig(): Config {
+  // Config loading trace — helpful when debugging model selection issues
+  // in containerized or scripted environments where env vars may be masked.
+  logger.debug(`[CONFIG] Loading with OLLAMA_MODEL: ${process.env.OLLAMA_MODEL}`);
   const rawConfig = {
     server: {
       port: process.env.PORT ? parseInt(process.env.PORT, 10) : undefined,
@@ -113,6 +126,7 @@ function loadConfig(): Config {
     ollama: {
       baseUrl: process.env.OLLAMA_URL,
       model: process.env.OLLAMA_MODEL,
+      embedModel: process.env.EMBED_MODEL,
       timeout: process.env.OLLAMA_TIMEOUT ? parseInt(process.env.OLLAMA_TIMEOUT, 10) : undefined,
       visionTimeout: process.env.OLLAMA_VISION_TIMEOUT ? parseInt(process.env.OLLAMA_VISION_TIMEOUT, 10) : undefined,
       maxRetries: process.env.OLLAMA_MAX_RETRIES ? parseInt(process.env.OLLAMA_MAX_RETRIES, 10) : undefined,
@@ -134,11 +148,6 @@ function loadConfig(): Config {
         repeatPenalty: process.env.OLLAMA_REPEAT_PENALTY ? parseFloat(process.env.OLLAMA_REPEAT_PENALTY) : undefined,
         frequencyPenalty: process.env.OLLAMA_FREQUENCY_PENALTY ? parseFloat(process.env.OLLAMA_FREQUENCY_PENALTY) : undefined,
         presencePenalty: process.env.OLLAMA_PRESENCE_PENALTY ? parseFloat(process.env.OLLAMA_PRESENCE_PENALTY) : undefined,
-      },
-      cache: {
-        enabled: process.env.OLLAMA_CACHE_ENABLED !== 'false',
-        ttl: process.env.OLLAMA_CACHE_TTL ? parseInt(process.env.OLLAMA_CACHE_TTL, 10) : undefined,
-        maxSize: process.env.OLLAMA_CACHE_MAX_SIZE ? parseInt(process.env.OLLAMA_CACHE_MAX_SIZE, 10) : undefined,
       },
       pool: {
         enabled: process.env.OLLAMA_POOL_ENABLED !== 'false',
@@ -178,6 +187,9 @@ function loadConfig(): Config {
       initialDelay: process.env.WARMUP_INITIAL_DELAY
         ? parseInt(process.env.WARMUP_INITIAL_DELAY, 10)
         : undefined,
+    },
+    db: {
+      path: process.env.DB_PATH,
     },
   };
 

@@ -1,10 +1,12 @@
-import { describe, it, expect, beforeAll } from 'vitest';
-import { parseFormFromText } from '../parser.js';
-import { checkOllamaHealth } from '../ollama.js';
-import { validateForm, type MonthlyCareCoordinationForm } from '@ara/shared';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+
+import { validateForm } from '@ara/shared';
+import { describe, it, expect, beforeAll } from 'vitest';
+
+import { checkOllamaHealth } from '../ollama.js';
+import { parseFormFromText } from '../parser.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fixturesDir = path.join(__dirname, '..', '..', 'test-fixtures');

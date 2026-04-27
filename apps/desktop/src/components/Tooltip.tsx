@@ -1,5 +1,7 @@
 import { useState, type ReactNode } from 'react';
 
+import { Icon } from './Icon';
+
 interface TooltipProps {
   children: ReactNode;
   content: ReactNode;
@@ -115,10 +117,10 @@ export function InfoBadge({
   type?: 'info' | 'warning' | 'success' | 'tip';
 }) {
   const colors = {
-    info: { bg: '#dbeafe', border: '#bfdbfe', text: '#1e40af', icon: 'ℹ️' },
-    warning: { bg: '#fef3c7', border: '#fde68a', text: '#92400e', icon: '⚠️' },
-    success: { bg: '#d1fae5', border: '#a7f3d0', text: '#065f46', icon: '✓' },
-    tip: { bg: '#f3e8ff', border: '#e9d5ff', text: '#6b21a8', icon: '💡' },
+    info: { bg: '#dbeafe', border: '#bfdbfe', text: '#1e40af', iconName: 'warning' as const },
+    warning: { bg: '#fef3c7', border: '#fde68a', text: '#92400e', iconName: 'warning' as const },
+    success: { bg: '#d1fae5', border: '#a7f3d0', text: '#065f46', iconName: 'check' as const },
+    tip: { bg: '#f3e8ff', border: '#e9d5ff', text: '#6b21a8', iconName: 'sparkles' as const },
   };
 
   const style = colors[type];
@@ -138,7 +140,7 @@ export function InfoBadge({
         gap: '0.5rem',
       }}
     >
-      <span style={{ flexShrink: 0 }}>{style.icon}</span>
+      <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center' }}><Icon name={style.iconName} size={14} color={style.text} /></span>
       <span>{children}</span>
     </div>
   );

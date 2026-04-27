@@ -1,43 +1,18 @@
-import { useEffect, useCallback } from 'react';
-
-type KeyboardHandler = (e: KeyboardEvent) => void;
+/**
+ * Keyboard shortcut utilities.
+ *
+ * useKeyboardShortcuts has been moved to hooks/useKeyboardShortcuts.ts.
+ * This file keeps the shortcut catalog and formatting helpers used by
+ * ShortcutsHelp.tsx.
+ */
 
 interface ShortcutConfig {
   key: string;
   ctrl?: boolean;
   shift?: boolean;
   alt?: boolean;
-  handler: KeyboardHandler;
-  description: string;
-}
-
-export function useKeyboardShortcuts(shortcuts: ShortcutConfig[]): void {
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    // Don't trigger shortcuts when typing in inputs
-    if (e.target instanceof HTMLInputElement || 
-        e.target instanceof HTMLTextAreaElement ||
-        (e.target as HTMLElement).isContentEditable) {
-      return;
-    }
-
-    for (const shortcut of shortcuts) {
-      const keyMatch = e.key.toLowerCase() === shortcut.key.toLowerCase();
-      const ctrlMatch = !!shortcut.ctrl === e.ctrlKey;
-      const shiftMatch = !!shortcut.shift === e.shiftKey;
-      const altMatch = !!shortcut.alt === e.altKey;
-
-      if (keyMatch && ctrlMatch && shiftMatch && altMatch) {
-        e.preventDefault();
-        shortcut.handler(e);
-        break;
-      }
-    }
-  }, [shortcuts]);
-
-  useEffect(() => {
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleKeyDown]);
+  handler?: (e: KeyboardEvent) => void;
+  description?: string;
 }
 
 export function formatShortcut(shortcut: Omit<ShortcutConfig, 'handler' | 'description'>): string {

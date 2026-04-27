@@ -1,14 +1,41 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+/**
+ * ImportScreen - the app's entry point.
+ *
+ * Three ways in after the Phase 1 refactor:
+ *   1. Drop / pick a PDF or image file → OCR → summary (primary).
+ *   2. Paste or type text → summary (primary).
+ *   3. Click "Fill form manually" → opens the structured MCCMC form with empty
+ *      fields for users who prefer filling the form in-app.
+ *
+ * The summary path posts to /summarize or /summarize/file and forwards the
+ * response to `onSummarized`. The form path short-circuits with a blank
+ * ExtractionResult via `onFormRequested`.
+ */
+
 import { type ExtractionResult } from '@ara/shared';
+import { useState, useCallback, useEffect, useRef } from 'react';
+
+import { Icon } from '../components/Icon';
 import { ProgressBar } from '../components/ProgressBar';
 
+import type { SummaryPayload } from './SummaryScreen';
+
 interface ImportScreenProps {
-  onExtracted: (result: ExtractionResult) => void;
+  /** Called when a summary is produced (text or file path). Routes to SummaryScreen. */
+  onSummarized: (payload: SummaryPayload) => void;
+  /** Called when the user asks to fill the form manually. Routes to ReviewScreen with a blank form. */
+  onFormRequested: (result: ExtractionResult) => void;
+  /** Phase 3: if set, the summary-write hook will persist the session under this patient. */
+  selectedPatientId?: number;
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
-export function ImportScreen({ onExtracted }: ImportScreenProps) {
+// Operation name used by the backend progress tracker for both /summarize and
+// /summarize/file. Must match the string passed to createProgressTracker server-side.
+const SUMMARIZE_PROGRESS_KEY = 'SUMMARIZE';
+
+export function ImportScreen({ onSummarized, onFormRequested, selectedPatientId }: ImportScreenProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -17,11 +44,20 @@ export function ImportScreen({ onExtracted }: ImportScreenProps) {
   const [ollamaStatus, setOllamaStatus] = useState<'checking' | 'connected' | 'disconnected'>('checking');
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Check Ollama status on mount
+  // Poll /health on mount and every 30s so the indicator stays accurate if the
+  // user leaves the screen open while Ollama starts/stops.
   useEffect(() => {
     checkHealth();
     const interval = setInterval(checkHealth, 30000);
     return () => clearInterval(interval);
+  }, []);
+
+  // Clean up the progress poller on unmount — belt-and-suspenders; each request
+  // path also clears its own interval in a finally block.
+  useEffect(() => {
+    return () => {
+      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+    };
   }, []);
 
   const checkHealth = async () => {
@@ -31,6 +67,36 @@ export function ImportScreen({ onExtracted }: ImportScreenProps) {
       setOllamaStatus(data.ollama === 'connected' ? 'connected' : 'disconnected');
     } catch {
       setOllamaStatus('disconnected');
+    }
+  };
+
+  /**
+   * Start polling the service's progress store for a given operation key.
+   * Updates `progress` and `statusMessage` until cleared.
+   */
+  const startProgressPolling = (operationKey: string) => {
+    const poll = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/progress/${operationKey}`);
+        if (response.ok) {
+          const data = await response.json();
+          // Null means no progress entry yet — ignore until the server writes one.
+          if (data) {
+            setProgress(data.percent);
+            setStatusMessage(data.message);
+          }
+        }
+      } catch {
+        // Network blips during polling are harmless; the next tick retries.
+      }
+    };
+    progressIntervalRef.current = setInterval(poll, 500);
+  };
+
+  const stopProgressPolling = () => {
+    if (progressIntervalRef.current) {
+      clearInterval(progressIntervalRef.current);
+      progressIntervalRef.current = null;
     }
   };
 
@@ -44,54 +110,47 @@ export function ImportScreen({ onExtracted }: ImportScreenProps) {
     setIsDragging(false);
   }, []);
 
+  /**
+   * File path: POST /summarize/file (multipart) → SummaryScreen.
+   * Backend handles OCR + summarization together; we just forward the result.
+   */
   const processFile = async (file: File) => {
     setIsProcessing(true);
     setProgress(0);
     setError(null);
     setStatusMessage('Reading document...');
-
-    // Start polling progress - EXTRACT is the operation name used by backend
-    const pollProgress = async () => {
-      try {
-        const response = await fetch(`${API_BASE_URL}/progress/EXTRACT`);
-        if (response.ok) {
-          const data = await response.json();
-          setProgress(data.percent);
-          setStatusMessage(data.message);
-        }
-      } catch {
-        // Ignore polling errors
-      }
-    };
-
-    progressIntervalRef.current = setInterval(pollProgress, 500);
+    startProgressPolling(SUMMARIZE_PROGRESS_KEY);
 
     try {
       const formData = new FormData();
       formData.append('file', file);
+      if (selectedPatientId) {
+        formData.append('patientId', String(selectedPatientId));
+      }
 
-      const response = await fetch(`${API_BASE_URL}/extract/pdf`, {
+      const response = await fetch(`${API_BASE_URL}/summarize/file`, {
         method: 'POST',
         body: formData,
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Processing failed');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error?.message || errorData.error || 'Processing failed');
       }
 
-      const result: ExtractionResult = await response.json();
-      onExtracted(result);
+      const payload: SummaryPayload = await response.json();
+      onSummarized(payload);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
       setIsProcessing(false);
     } finally {
-      if (progressIntervalRef.current) {
-        clearInterval(progressIntervalRef.current);
-      }
+      stopProgressPolling();
     }
   };
 
+  /**
+   * Text path: POST /summarize (JSON) → SummaryScreen.
+   */
   const processText = async (text: string) => {
     if (!text.trim()) {
       setError('Please enter some text');
@@ -102,46 +161,36 @@ export function ImportScreen({ onExtracted }: ImportScreenProps) {
     setProgress(0);
     setError(null);
     setStatusMessage('Analyzing notes...');
-
-    // Poll for FILL operation progress
-    const pollProgress = async () => {
-      try {
-        const response = await fetch(`${API_BASE_URL}/progress/FILL`);
-        if (response.ok) {
-          const data = await response.json();
-          setProgress(data.percent);
-          setStatusMessage(data.message);
-        }
-      } catch {}
-    };
-
-    progressIntervalRef.current = setInterval(pollProgress, 500);
+    startProgressPolling(SUMMARIZE_PROGRESS_KEY);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/extract/fill`, {
+      const response = await fetch(`${API_BASE_URL}/summarize`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rawText: text, ocrConfidence: 100 }),
+        body: JSON.stringify({ text, patientId: selectedPatientId }),
       });
 
       if (!response.ok) {
-        throw new Error('Processing failed');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error?.message || errorData.error || 'Processing failed');
       }
 
-      const result: ExtractionResult = await response.json();
-      onExtracted(result);
+      const payload: SummaryPayload = await response.json();
+      onSummarized(payload);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Processing failed');
       setIsProcessing(false);
     } finally {
-      if (progressIntervalRef.current) {
-        clearInterval(progressIntervalRef.current);
-      }
+      stopProgressPolling();
     }
   };
 
-  const startBlank = () => {
-    onExtracted({
+  /**
+   * Form-fill path: skips the AI entirely and hands the user a blank MCCMC form.
+   * Mirrors the shape `ExtractionResult` so ReviewScreen can consume it unchanged.
+   */
+  const openBlankForm = () => {
+    onFormRequested({
       form: {
         header: { recipientName: '', date: '', time: '', recipientIdentifier: '', dob: '', location: '' },
         careCoordinationType: { sih: false, hcbw: false },
@@ -164,36 +213,42 @@ export function ImportScreen({ onExtracted }: ImportScreenProps) {
 
   return (
     <div className="screen">
-      {/* Status Bar */}
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center',
-        marginBottom: '1.5rem',
-        padding: '0.75rem 1rem',
-        background: 'var(--color-surface)',
-        borderRadius: '8px',
-        border: '1px solid var(--color-border)',
-      }}>
+      {/* Ollama status indicator */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '1.5rem',
+          padding: '0.75rem 1rem',
+          background: 'var(--color-surface)',
+          borderRadius: '8px',
+          border: '1px solid var(--color-border)',
+        }}
+      >
         <span style={{ fontWeight: 500 }}>AI Assistant</span>
-        <span style={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: '0.5rem',
-          fontSize: '0.875rem',
-          color: ollamaStatus === 'connected' ? '#16a34a' : '#dc2626',
-        }}>
-          <span style={{ 
-            width: 8, 
-            height: 8, 
-            borderRadius: '50%', 
-            background: ollamaStatus === 'connected' ? '#16a34a' : '#dc2626',
-          }} />
-          {ollamaStatus === 'connected' ? 'Ready' : 'Offline - Using basic extraction'}
+        <span
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            fontSize: '0.875rem',
+            color: ollamaStatus === 'connected' ? '#16a34a' : '#dc2626',
+          }}
+        >
+          <span
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              background: ollamaStatus === 'connected' ? '#16a34a' : '#dc2626',
+            }}
+          />
+          {ollamaStatus === 'connected' ? 'Ready' : 'Offline - summary unavailable'}
         </span>
       </div>
 
-      {/* Upload Area */}
+      {/* File drop zone */}
       <div
         className={`card file-drop-zone ${isDragging ? 'drag-over' : ''}`}
         onDragOver={handleDragOver}
@@ -204,7 +259,7 @@ export function ImportScreen({ onExtracted }: ImportScreenProps) {
           const files = e.dataTransfer.files;
           if (files.length > 0) processFile(files[0]);
         }}
-        style={{ 
+        style={{
           padding: '3rem 2rem',
           textAlign: 'center',
           opacity: isProcessing ? 0.5 : 1,
@@ -220,28 +275,32 @@ export function ImportScreen({ onExtracted }: ImportScreenProps) {
           disabled={isProcessing}
         />
         <label htmlFor="file-input" style={{ cursor: 'pointer', display: 'block' }}>
-          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📄</div>
+          <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'center' }}>
+            <Icon name="document" size={48} color="var(--color-primary)" />
+          </div>
           <h3 style={{ marginBottom: '0.5rem' }}>Drop a PDF or image here</h3>
           <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>
-            Or click to browse • PDF, PNG, JPG supported
+            Or click to browse. We&apos;ll OCR and summarize it.
           </p>
         </label>
       </div>
 
-      {/* OR Divider */}
-      <div style={{ 
-        display: 'flex', 
-        alignItems: 'center', 
-        gap: '1rem',
-        margin: '1.5rem 0',
-        color: 'var(--color-text-muted)',
-      }}>
+      {/* OR divider */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '1rem',
+          margin: '1.5rem 0',
+          color: 'var(--color-text-muted)',
+        }}
+      >
         <div style={{ flex: 1, height: 1, background: 'var(--color-border)' }} />
         <span>OR</span>
         <div style={{ flex: 1, height: 1, background: 'var(--color-border)' }} />
       </div>
 
-      {/* Text Input */}
+      {/* Text input */}
       <div className="card" style={{ opacity: isProcessing ? 0.5 : 1 }}>
         <h3 style={{ marginBottom: '0.75rem' }}>Type or Paste Notes</h3>
         <TextInputForm onSubmit={processText} disabled={isProcessing} />
@@ -257,32 +316,40 @@ export function ImportScreen({ onExtracted }: ImportScreenProps) {
       {/* Error */}
       {error && (
         <div className="card" style={{ background: '#fef2f2', borderColor: '#fecaca' }}>
-          <p style={{ color: '#dc2626', margin: 0 }}>⚠️ {error}</p>
+          <p style={{ color: '#dc2626', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Icon name="warning" size={18} color="#dc2626" />
+            {error}
+          </p>
         </div>
       )}
 
-      {/* Start Blank */}
+      {/* Opt-in form-fill path. Separate from the summary flow so users who want
+          to fill the structured MCCMC form in-app have a direct entry point. */}
       <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
-        <button 
-          onClick={startBlank}
+        <button
+          onClick={openBlankForm}
           disabled={isProcessing}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: 'var(--color-text-muted)',
-            cursor: 'pointer',
-            fontSize: '0.875rem',
-          }}
+          className="btn btn-secondary"
+          style={{ padding: '0.5rem 1.25rem' }}
         >
-          Start with a blank form →
+          Fill form manually →
         </button>
+        <p style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem', marginTop: '0.5rem' }}>
+          Opens the structured MCCMC form with empty fields.
+        </p>
       </div>
     </div>
   );
 }
 
-// Sub-component for text input
-function TextInputForm({ onSubmit, disabled }: { onSubmit: (text: string) => void; disabled?: boolean }) {
+// Text input sub-component. Keeps ImportScreen's top-level JSX readable.
+function TextInputForm({
+  onSubmit,
+  disabled,
+}: {
+  onSubmit: (text: string) => void;
+  disabled?: boolean;
+}) {
   const [text, setText] = useState('');
 
   return (
@@ -291,7 +358,7 @@ function TextInputForm({ onSubmit, disabled }: { onSubmit: (text: string) => voi
         value={text}
         onChange={(e) => setText(e.target.value)}
         placeholder="Paste caregiver notes here..."
-        rows={6}
+        rows={8}
         disabled={disabled}
         style={{
           width: '100%',
@@ -305,15 +372,15 @@ function TextInputForm({ onSubmit, disabled }: { onSubmit: (text: string) => voi
         }}
       />
       <div style={{ display: 'flex', gap: '0.75rem' }}>
-        <button 
+        <button
           type="submit"
           className="btn btn-primary"
           disabled={disabled || !text.trim()}
           style={{ flex: 1 }}
         >
-          {disabled ? 'Processing...' : '🤖 Analyze with AI'}
+          {disabled ? 'Processing...' : 'Summarize with AI'}
         </button>
-        <button 
+        <button
           type="button"
           className="btn btn-secondary"
           onClick={() => setText('')}

@@ -5,7 +5,7 @@
 import { setProgress } from './progressStore.js';
 
 // Track current operations and their stages for accurate progress
-const operationStages: Record<string, { start: number; end: number }> = {
+const _operationStages: Record<string, { start: number; end: number }> = {
   'EXTRACT': { start: 0, end: 100 },
   'OCR': { start: 10, end: 50 },
   'PARSER': { start: 50, end: 95 },

@@ -1,5 +1,7 @@
-import { useState } from 'react';
 import type { ExtractionResult } from '@ara/shared';
+import { useState } from 'react';
+
+import { Icon } from './Icon';
 import { Tooltip } from './Tooltip';
 
 interface ExportOptionsProps {
@@ -38,19 +40,19 @@ export function ExportOptions({ form, rawText, onExportPDF }: ExportOptionsProps
       <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
         <Tooltip content="Export as fillable PDF">
           <button className="btn btn-primary" onClick={onExportPDF}>
-            📄 Export PDF
+            <Icon name="document" size={16} /> Export PDF
           </button>
         </Tooltip>
         
         <Tooltip content="Print-friendly version">
           <button className="btn btn-secondary" onClick={handlePrint}>
-            🖨️ Print
+            <Icon name="print" size={16} /> Print
           </button>
         </Tooltip>
         
         <Tooltip content="Backup as JSON file">
           <button className="btn btn-secondary" onClick={exportToJSON}>
-            💾 JSON Backup
+            <Icon name="save" size={16} /> JSON Backup
           </button>
         </Tooltip>
       </div>
@@ -113,8 +115,8 @@ function PrintableForm({ form }: { form: ExtractionResult['form'] }) {
 
       <div style={{ marginBottom: '1rem' }}>
         <strong>Care Coordination Type:</strong>{' '}
-        {form.careCoordinationType.sih && '☑ Senior In-Home '}
-        {form.careCoordinationType.hcbw && '☑ Home & Community-Based Waiver'}
+        {form.careCoordinationType.sih && <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}><Icon name="check" size={14} /> Senior In-Home </span>}
+        {form.careCoordinationType.hcbw && <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}><Icon name="check" size={14} /> Home & Community-Based Waiver</span>}
       </div>
 
       {Object.entries(form.narrative).map(([key, value]) => (

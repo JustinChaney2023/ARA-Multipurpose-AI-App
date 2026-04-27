@@ -3,8 +3,9 @@
  * Standardizes error responses across all endpoints
  */
 
+import { AppError, isAppError, Errors } from '@ara/shared';
 import type { Request, Response, NextFunction } from 'express';
-import { AppError, isAppError, getErrorMessage, Errors } from '@ara/shared';
+
 import { logger } from '../logger.js';
 
 /**

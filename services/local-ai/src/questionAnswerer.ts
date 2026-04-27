@@ -4,14 +4,15 @@
  * Supports both full form filling and targeted repair of specific fields.
  */
 
-import { FORM_QUESTIONS, getQuestionByFieldPath, type FormQuestion } from './formQuestions.js';
 import { createEmptyForm, type MonthlyCareCoordinationForm, type FieldConfidence, type QAAnswer, type FieldPath } from '@ara/shared';
+
+import { FORM_QUESTIONS, getQuestionByFieldPath, type FormQuestion } from './formQuestions.js';
 import { logger, createProgressTracker } from './logger.js';
-import { checkOllamaHealth } from './ollama.js';
-import { setModelBusy } from './warmup.js';
 import { DEFAULT_MODEL, getModelOptions } from './modelConfig.js';
+import { checkOllamaHealth } from './ollama.js';
 import { getOllamaClient } from './ollamaClient.js';
 import { buildConfidenceFromAnswers } from './utils/confidence.js';
+import { setModelBusy } from './warmup.js';
 
 export interface QAResult {
   form: MonthlyCareCoordinationForm;
@@ -111,6 +112,7 @@ async function answerQuestion(question: FormQuestion, transcript: string): Promi
 
   try {
     const client = getOllamaClient();
+    // Reduced timeout for faster CPU inference (20s instead of 60s per question)
     const data = await client.generate(
       {
         model: DEFAULT_MODEL,
@@ -119,7 +121,7 @@ async function answerQuestion(question: FormQuestion, transcript: string): Promi
         stream: false,
         options: getQuestionModelOptions(question),
       },
-      { useCache: true, timeout: 60000 }
+      { timeout: 20000 }
     );
     const rawAnswer = data.response?.trim() || '';
     const parsed = parseQAResponse(rawAnswer);

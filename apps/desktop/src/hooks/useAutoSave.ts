@@ -1,6 +1,7 @@
-import { useEffect } from 'react';
-import { startAutoSave, stopAutoSave, clearDraft, saveDraft } from '../utils/autoSave';
 import type { ExtractionResult } from '@ara/shared';
+import { useEffect } from 'react';
+
+import { startAutoSave, stopAutoSave, clearDraft, saveDraft } from '../utils/autoSave';
 
 export function useAutoSave(
   form: ExtractionResult['form'],

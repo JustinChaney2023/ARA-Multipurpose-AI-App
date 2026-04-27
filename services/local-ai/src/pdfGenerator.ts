@@ -3,8 +3,8 @@
  * Creates a clean, styled worksheet with editable form fields
  */
 
-import { PDFDocument, PDFPage, rgb, StandardFonts } from 'pdf-lib';
 import type { MonthlyCareCoordinationForm } from '@ara/shared';
+import { PDFDocument, PDFPage, rgb, StandardFonts } from 'pdf-lib';
 
 /**
  * Generate a professional PDF form with fillable fields
@@ -15,7 +15,7 @@ export async function generateProfessionalPDF(
   const pdfDoc = await PDFDocument.create();
   const page = pdfDoc.addPage([612, 792]); // Letter size
   
-  const { width, height } = page.getSize();
+  const { width: _width, height } = page.getSize();
   const margin = 50;
   let y = height - margin;
   
@@ -86,7 +86,7 @@ function drawHeaderSection(
   margin: number,
   y: number,
   boldFont: any,
-  regularFont: any
+  _regularFont: any
 ): number {
   const rowHeight = 28;
   const labelWidth = 130;

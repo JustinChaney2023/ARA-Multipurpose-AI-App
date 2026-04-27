@@ -4,6 +4,7 @@
  */
 
 import type { Server } from 'http';
+
 import { logger } from '../logger.js';
 
 interface ShutdownOptions {

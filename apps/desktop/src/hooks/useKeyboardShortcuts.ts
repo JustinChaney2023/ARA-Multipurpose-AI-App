@@ -11,10 +11,14 @@ interface ShortcutConfig {
 
 export function useKeyboardShortcuts(shortcuts: ShortcutConfig[]) {
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    // Don't trigger shortcuts when typing in inputs
-    if (e.target instanceof HTMLInputElement || 
-        e.target instanceof HTMLTextAreaElement ||
-        (e.target as HTMLElement).isContentEditable) {
+    // Don't trigger shortcuts when typing in inputs, selects, or content-editables
+    const target = e.target as HTMLElement;
+    if (
+      target instanceof HTMLInputElement ||
+      target instanceof HTMLTextAreaElement ||
+      target instanceof HTMLSelectElement ||
+      target.isContentEditable
+    ) {
       return;
     }
 

@@ -12,6 +12,16 @@ export interface ValidationState {
   warnings: ValidationError[];
 }
 
+function normalizeIssues(items: Array<{ field?: FieldPath; path?: FieldPath; message: string; severity: 'error' | 'warning' }>): ValidationError[] {
+  return items
+    .map(item => ({
+      field: item.field ?? item.path,
+      message: item.message,
+      severity: item.severity,
+    }))
+    .filter((item): item is ValidationError => Boolean(item.field));
+}
+
 export async function validateForm(form: ExtractionResult['form']): Promise<ValidationState> {
   try {
     const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/validate`, {
@@ -21,7 +31,17 @@ export async function validateForm(form: ExtractionResult['form']): Promise<Vali
     });
     
     if (!response.ok) throw new Error('Validation failed');
-    return await response.json();
+    const data = await response.json() as {
+      valid: boolean;
+      errors?: Array<{ field?: FieldPath; path?: FieldPath; message: string; severity: 'error' | 'warning' }>;
+      warnings?: Array<{ field?: FieldPath; path?: FieldPath; message: string; severity: 'error' | 'warning' }>;
+    };
+
+    return {
+      valid: data.valid,
+      errors: normalizeIssues(data.errors ?? []),
+      warnings: normalizeIssues(data.warnings ?? []),
+    };
   } catch {
     // Fallback client-side validation if server fails
     return clientSideValidation(form);
@@ -140,129 +160,108 @@ export async function autoFormatDate(value: string): Promise<string> {
   // ISO format: YYYY-MM-DD or YYYY/MM/DD
   const isoMatch = value.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})$/);
   if (isoMatch) {
-    let [, year, month, day] = isoMatch;
+    const [, year, month, day] = isoMatch;
     let monthNum = parseInt(month);
     let dayNum = parseInt(day);
-    let corrected = false;
-    
+
     // Fix invalid month
     if (monthNum === 0) {
       monthNum = 1;
-      corrected = true;
     } else if (monthNum > 12) {
       monthNum = 12;
-      corrected = true;
     }
     
     // Fix invalid day
     if (dayNum === 0) {
       dayNum = 1;
-      corrected = true;
     } else if (dayNum > 31) {
       dayNum = 31;
-      corrected = true;
     }
-    
+
     // Adjust for month
     const daysInMonth = new Date(parseInt(year), monthNum, 0).getDate();
     if (dayNum > daysInMonth) {
       dayNum = daysInMonth;
-      corrected = true;
     }
-    
+
     const formatted = `${String(monthNum).padStart(2, '0')}/${String(dayNum).padStart(2, '0')}/${year}`;
-    if (corrected) console.log(`[Date Auto-fix] Corrected "${value}" to "${formatted}"`);
     return formatted;
   }
-  
+
   // European format: DD-MM-YYYY or DD.MM.YYYY (detect by first number > 12)
   const euroMatch = value.match(/^(\d{1,2})[.\-](\d{1,2})[.\-](\d{4})$/);
   if (euroMatch) {
-    let [, first, second, year] = euroMatch;
-    let firstNum = parseInt(first);
-    let secondNum = parseInt(second);
+    const [, first, second, year] = euroMatch;
+    const firstNum = parseInt(first);
+    const secondNum = parseInt(second);
     
     // If first number > 12, it's likely day (European format)
     if (firstNum > 12) {
       let dayNum = firstNum;
       let monthNum = secondNum;
-      let corrected = false;
-      
+
       // Fix month
       if (monthNum === 0) {
         monthNum = 1;
-        corrected = true;
       } else if (monthNum > 12) {
         monthNum = 12;
-        corrected = true;
       }
       
       // Fix day
       if (dayNum === 0) {
         dayNum = 1;
-        corrected = true;
       } else if (dayNum > 31) {
         dayNum = 31;
-        corrected = true;
       }
-      
+
       // Adjust for month
       const daysInMonth = new Date(parseInt(year), monthNum, 0).getDate();
       if (dayNum > daysInMonth) {
         dayNum = daysInMonth;
-        corrected = true;
       }
-      
+
       const formatted = `${String(monthNum).padStart(2, '0')}/${String(dayNum).padStart(2, '0')}/${year}`;
-      if (corrected) console.log(`[Date Auto-fix] Corrected "${value}" to "${formatted}"`);
       return formatted;
     }
   }
-  
+
   // US format: M/D/YYYY or MM/DD/YYYY or M-D-YYYY
   const usMatch = value.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
   if (usMatch) {
     let [, month, day, year] = usMatch;
     let monthNum = parseInt(month);
     let dayNum = parseInt(day);
-    let corrected = false;
-    
+
     // Fix invalid month (00 → 01, >12 → 12)
     if (monthNum === 0) {
       monthNum = 1;
-      corrected = true;
     } else if (monthNum > 12) {
       monthNum = 12;
-      corrected = true;
     }
     
     // Fix invalid day (00 → 01, >31 → 31)
     if (dayNum === 0) {
       dayNum = 1;
-      corrected = true;
     } else if (dayNum > 31) {
       dayNum = 31;
-      corrected = true;
     }
-    
+
     // Handle 2-digit years
     if (year.length === 2) {
       const yearNum = parseInt(year);
       year = yearNum < 50 ? `20${year}` : `19${year}`;
     }
-    
+
     // Adjust day for months with fewer days
     const daysInMonth = new Date(parseInt(year), monthNum, 0).getDate();
     if (dayNum > daysInMonth) {
       dayNum = daysInMonth;
-      corrected = true;
     }
-    
+
     const formatted = `${String(monthNum).padStart(2, '0')}/${String(dayNum).padStart(2, '0')}/${year}`;
-    if (corrected) console.log(`[Date Auto-fix] Corrected "${value}" to "${formatted}"`);
     return formatted;
   }
-  
+
   // Compact format: MMDDYYYY or DDMMYYYY (8 digits)
   const compactMatch = value.match(/^(\d{8})$/);
   if (compactMatch) {
