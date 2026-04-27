@@ -8,6 +8,16 @@ vi.mock('../questionAnswerer.js', () => ({
   answerSpecificQuestions: vi.fn(),
 }));
 
+const ollamaClientMock = vi.hoisted(() => ({
+  generate: vi.fn(),
+}));
+
+vi.mock('../ollamaClient.js', () => ({
+  getOllamaClient: () => ({
+    generate: ollamaClientMock.generate,
+  }),
+}));
+
 import { fillNarrativeWithQA } from '../narrativeQA.js';
 import { checkOllamaHealth } from '../ollama.js';
 import { answerSpecificQuestions } from '../questionAnswerer.js';
@@ -25,6 +35,9 @@ describe('fillNarrativeWithQA', () => {
     vi.clearAllMocks();
     mockedCheckOllamaHealth.mockReset();
     mockedAnswerSpecificQuestions.mockReset();
+    ollamaClientMock.generate.mockReset();
+    ollamaClientMock.generate.mockResolvedValue({ response: '{}' });
+    mockedAnswerSpecificQuestions.mockResolvedValue({});
   });
 
   it('falls back to deterministic extraction when Ollama is unavailable', async () => {
@@ -43,30 +56,27 @@ describe('fillNarrativeWithQA', () => {
   it('extracts form data using LLM when available', async () => {
     mockedCheckOllamaHealth.mockResolvedValue(true);
 
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        response: JSON.stringify({
-          // NOTE: recipientName is NOT extracted - manual entry only (HIPAA compliance)
-          recipientName: '',
-          date: '02/15/2024',
-          time: '14:30',
-          recipientIdentifier: '',
-          dob: '',
-          location: 'Home',
-          sih: true,
-          hcbw: false,
-          recipientAndVisitObservations: 'Client was alert and oriented.',
-          healthEmotionalStatus: 'No health issues reported.',
-          reviewOfServices: 'SIH services ongoing.',
-          progressTowardGoals: 'Stable, meeting goals.',
-          followUpTasks: 'Call daughter next week.',
-          additionalNotes: 'Family engaged.',
-          careCoordinatorName: '',
-          dateSigned: '',
-        }),
+    ollamaClientMock.generate.mockResolvedValue({
+      response: JSON.stringify({
+        // NOTE: recipientName is NOT extracted - manual entry only (HIPAA compliance)
+        recipientName: '',
+        date: '02/15/2024',
+        time: '14:30',
+        recipientIdentifier: '',
+        dob: '',
+        location: 'Home',
+        sih: true,
+        hcbw: false,
+        recipientAndVisitObservations: 'Client was alert and oriented.',
+        healthEmotionalStatus: 'No health issues reported.',
+        reviewOfServices: 'SIH services ongoing.',
+        progressTowardGoals: 'Stable, meeting goals.',
+        followUpTasks: 'Call daughter next week.',
+        additionalNotes: 'Family engaged.',
+        careCoordinatorName: '',
+        dateSigned: '',
       }),
-    }));
+    });
 
     const result = await fillNarrativeWithQA(`Name: Mary Johnson\nDate: 02/15/2024\nVisited at 2:30 PM at home.\nCoordinator: Jane Care`);
 
@@ -80,12 +90,7 @@ describe('fillNarrativeWithQA', () => {
   it('falls back gracefully when LLM returns malformed JSON', async () => {
     mockedCheckOllamaHealth.mockResolvedValue(true);
 
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        response: 'This is not valid JSON at all!!!',
-      }),
-    }));
+    ollamaClientMock.generate.mockResolvedValue({ response: 'This is not valid JSON at all!!!' });
 
     const result = await fillNarrativeWithQA(`Date: 03/01/2024\nSIH visit at Home.`);
 
@@ -98,7 +103,7 @@ describe('fillNarrativeWithQA', () => {
   it('falls back gracefully when LLM request times out', async () => {
     mockedCheckOllamaHealth.mockResolvedValue(true);
 
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('AbortError: The operation was aborted')));
+    ollamaClientMock.generate.mockRejectedValue(new Error('AbortError: The operation was aborted'));
 
     const result = await fillNarrativeWithQA(`Date: 03/01/2024\nSIH visit at Home.`);
 

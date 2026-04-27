@@ -22,7 +22,7 @@
     "dev:web": "npm run -w apps/desktop dev:web",
     "build": "npm run build --workspaces",
     "build:desktop": "npm run -w apps/desktop tauri build",
-    "test": "npm run test --workspaces",
+    "test": "npm run test --workspaces --if-present",
     "test:coverage": "vitest run --coverage",
     "lint": "eslint . --ext .ts,.tsx",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",

@@ -3,11 +3,17 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 import { validateForm } from '@ara/shared';
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, vi } from 'vitest';
 
 import { checkOllamaHealth } from '../ollama.js';
 import { parseFormFromText } from '../parser.js';
 
+vi.mock('../ollama.js', () => ({
+  checkOllamaHealth: vi.fn().mockResolvedValue(false),
+  generateFormWithLLM: vi.fn().mockRejectedValue(new Error('Ollama disabled in default tests')),
+  isMultimodalModel: vi.fn().mockResolvedValue(false),
+  markLLMFailed: vi.fn(),
+}));
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fixturesDir = path.join(__dirname, '..', '..', 'test-fixtures');
 
