@@ -4,7 +4,7 @@ Get up and running with ARA Caregiver Assistant in minutes.
 
 ## Prerequisites
 
-- Node.js 18+ ([Download](https://nodejs.org/))
+- Node.js 20.16+ ([Download](https://nodejs.org/))
 - (Optional) Ollama for AI features ([Download](https://ollama.ai))
 
 ## First Time Setup

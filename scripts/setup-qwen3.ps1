@@ -24,7 +24,7 @@ if (-not $ollama) {
     exit 1
 }
 
-Write-Host "✓ Ollama found at: $($ollama.Source)" -ForegroundColor Green
+Write-Host "[OK] Ollama found at: $($ollama.Source)" -ForegroundColor Green
 Write-Host ""
 
 # Check if model is already available
@@ -33,7 +33,7 @@ $models = ollama list 2>$null
 $hasModel = $models | Select-String "qwen3:4b-q4_K_M"
 
 if ($hasModel) {
-    Write-Host "✓ Model already installed!" -ForegroundColor Green
+    Write-Host "[OK] Model already installed!" -ForegroundColor Green
 } else {
     Write-Host "Model not found. Downloading Qwen3-4B-Q4_K_M..." -ForegroundColor Yellow
     Write-Host "This will download ~2.3GB and may take a few minutes." -ForegroundColor Gray
@@ -46,7 +46,7 @@ if ($hasModel) {
         exit 1
     }
     
-    Write-Host "✓ Model downloaded successfully!" -ForegroundColor Green
+    Write-Host "[OK] Model downloaded successfully!" -ForegroundColor Green
 }
 
 Write-Host ""
@@ -56,9 +56,9 @@ Write-Host "Testing model..." -ForegroundColor Yellow
 $testResult = ollama run qwen3:4b-q4_K_M "Say 'Qwen3 is ready!'" 2>$null
 
 if ($testResult -match "ready") {
-    Write-Host "✓ Model test passed!" -ForegroundColor Green
+    Write-Host "[OK] Model test passed!" -ForegroundColor Green
 } else {
-    Write-Host "⚠ Model test inconclusive, but should work" -ForegroundColor Yellow
+    Write-Host "[WARN] Model test inconclusive, but should work" -ForegroundColor Yellow
 }
 
 Write-Host ""

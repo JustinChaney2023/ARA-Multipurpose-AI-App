@@ -29,13 +29,13 @@ if ! command -v ollama &> /dev/null; then
     exit 1
 fi
 
-echo -e "${GREEN}✓ Ollama found${NC}"
+echo -e "${GREEN}[OK] Ollama found${NC}"
 echo ""
 
 # Check if model is already available
 echo -e "${YELLOW}Checking for Qwen3-4B-Q4_K_M model...${NC}"
 if ollama list | grep -q "qwen3:4b-q4_K_M"; then
-    echo -e "${GREEN}✓ Model already installed!${NC}"
+    echo -e "${GREEN}[OK] Model already installed!${NC}"
 else
     echo -e "${YELLOW}Model not found. Downloading Qwen3-4B-Q4_K_M...${NC}"
     echo -e "${CYAN}This will download ~2.3GB and may take a few minutes.${NC}"
@@ -43,7 +43,7 @@ else
     
     ollama pull qwen3:4b-q4_K_M
     
-    echo -e "${GREEN}✓ Model downloaded successfully!${NC}"
+    echo -e "${GREEN}[OK] Model downloaded successfully!${NC}"
 fi
 
 echo ""
@@ -51,9 +51,9 @@ echo ""
 # Test the model
 echo -e "${YELLOW}Testing model...${NC}"
 if ollama run qwen3:4b-q4_K_M "Say 'Qwen3 is ready!'" 2>/dev/null | grep -q "ready"; then
-    echo -e "${GREEN}✓ Model test passed!${NC}"
+    echo -e "${GREEN}[OK] Model test passed!${NC}"
 else
-    echo -e "${YELLOW}⚠ Model test inconclusive, but should work${NC}"
+    echo -e "${YELLOW}[WARN] Model test inconclusive, but should work${NC}"
 fi
 
 echo ""

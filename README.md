@@ -9,7 +9,7 @@ protected health information on the local machine by default and uses local OCR
 and optional local LLM tooling for note processing.
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Node.js](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)
+![Node.js](https://img.shields.io/badge/node-%3E%3D20.16.0-brightgreen.svg)
 
 ## Features
 
@@ -61,12 +61,12 @@ npm run dev:desktop
 
 ## Requirements
 
-| Tool    | Version         | Required For                       |
-| ------- | --------------- | ---------------------------------- |
-| Node.js | 18.0.0 or newer | All development                    |
-| npm     | 9.0.0 or newer  | Workspace scripts                  |
-| Rust    | 1.70.0 or newer | Tauri desktop builds               |
-| Ollama  | Optional        | Local LLM summaries and extraction |
+| Tool    | Version          | Required For                       |
+| ------- | ---------------- | ---------------------------------- |
+| Node.js | 20.16.0 or newer | All development                    |
+| npm     | 9.0.0 or newer   | Workspace scripts                  |
+| Rust    | 1.70.0 or newer  | Tauri desktop builds               |
+| Ollama  | Optional         | Local LLM summaries and extraction |
 
 ## Project Structure
 

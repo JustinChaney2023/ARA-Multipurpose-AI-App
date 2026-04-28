@@ -14,19 +14,19 @@ function Write-Header($text) {
 }
 
 function Write-Success($text) {
-    Write-Host "✓ $text" -ForegroundColor Green
+    Write-Host "[OK] $text" -ForegroundColor Green
 }
 
 function Write-Warning($text) {
-    Write-Host "⚠ $text" -ForegroundColor Yellow
+    Write-Host "[WARN] $text" -ForegroundColor Yellow
 }
 
 function Write-Error($text) {
-    Write-Host "✗ $text" -ForegroundColor Red
+    Write-Host "[ERROR] $text" -ForegroundColor Red
 }
 
 function Write-Info($text) {
-    Write-Host "→ $text" -ForegroundColor Blue
+    Write-Host "-> $text" -ForegroundColor Blue
 }
 
 function Write-Step($number, $text) {
@@ -54,19 +54,21 @@ Write-Step "1" "Checking Node.js installation"
 if (Test-Command "node") {
     $nodeVersion = node --version
     $nodeVersionClean = $nodeVersion -replace 'v', ''
-    $nodeMajor = [int]($nodeVersionClean -split '\.')[0]
+    $versionParts = $nodeVersionClean -split '\.'
+    $nodeMajor = [int]$versionParts[0]
+    $nodeMinor = [int]$versionParts[1]
     
-    if ($nodeMajor -ge 18) {
-        Write-Success "Node.js $nodeVersion found (>= 18.0.0)"
+    if ($nodeMajor -gt 20 -or ($nodeMajor -eq 20 -and $nodeMinor -ge 16)) {
+        Write-Success "Node.js $nodeVersion found (>= 20.16.0)"
     } else {
-        Write-Error "Node.js $nodeVersion found, but >= 18.0.0 is required"
+        Write-Error "Node.js $nodeVersion found, but >= 20.16.0 is required"
         Write-Info "Please upgrade Node.js: https://nodejs.org/"
         Write-Info "Or run: winget install OpenJS.NodeJS"
         exit 1
     }
 } else {
     Write-Error "Node.js not found"
-    Write-Info "Please install Node.js 18+: https://nodejs.org/"
+    Write-Info "Please install Node.js 20.16+: https://nodejs.org/"
     Write-Info "Or run: winget install OpenJS.NodeJS"
     exit 1
 }

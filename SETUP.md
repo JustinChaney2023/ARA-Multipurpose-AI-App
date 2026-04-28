@@ -32,7 +32,7 @@ npm run setup
 
 The setup script will:
 
-1. Check for Node.js (>= 18.0.0)
+1. Check for Node.js (>= 20.16.0)
 2. Install npm dependencies
 3. Build the shared package
 4. Set up environment configuration
@@ -42,10 +42,10 @@ The setup script will:
 
 ### Required
 
-| Software    | Version   | Purpose            |
-| ----------- | --------- | ------------------ |
-| **Node.js** | >= 18.0.0 | JavaScript runtime |
-| **npm**     | >= 9.0.0  | Package manager    |
+| Software    | Version    | Purpose            |
+| ----------- | ---------- | ------------------ |
+| **Node.js** | >= 20.16.0 | JavaScript runtime |
+| **npm**     | >= 9.0.0   | Package manager    |
 
 ### Optional
 
@@ -348,12 +348,12 @@ npm run verify
 
 ### Model Options
 
-| Model             | Size   | VRAM | Speed      | Quality    |
-| ----------------- | ------ | ---- | ---------- | ---------- |
-| `qwen2.5:0.5b`    | ~300MB | ~1GB | ⚡⚡⚡⚡⚡ | ⭐⭐       |
-| `qwen3:4b-q4_K_M` | ~2.3GB | ~3GB | ⚡⚡⚡     | ⭐⭐⭐⭐   |
-| `qwen3:4b-q8_0`   | ~3.5GB | ~4GB | ⚡⚡       | ⭐⭐⭐⭐⭐ |
-| `llama3.2:3b`     | ~2GB   | ~3GB | ⚡⚡⚡     | ⭐⭐⭐     |
+| Model             | Size   | VRAM | Speed     | Quality   |
+| ----------------- | ------ | ---- | --------- | --------- |
+| `qwen2.5:0.5b`    | ~300MB | ~1GB | Very fast | Basic     |
+| `qwen3:4b-q4_K_M` | ~2.3GB | ~3GB | Fast      | Strong    |
+| `qwen3:4b-q8_0`   | ~3.5GB | ~4GB | Moderate  | Excellent |
+| `llama3.2:3b`     | ~2GB   | ~3GB | Fast      | Good      |
 
 ## Running the Application
 

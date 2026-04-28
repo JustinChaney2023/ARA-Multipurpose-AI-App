@@ -3,7 +3,7 @@ import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-import pdfParse from 'pdf-parse';
+import { PDFParse } from 'pdf-parse';
 import { fromPath } from 'pdf2pic';
 import { createWorker } from 'tesseract.js';
 
@@ -53,30 +53,37 @@ async function extractFromPDF(
   const buffer = await fs.readFile(filePath);
 
   progress.update(30, 'Parsing PDF structure');
-  const pdfData = await pdfParse(buffer);
+  const parser = new PDFParse({ data: new Uint8Array(buffer) });
 
-  progress.update(50, `Found ${pdfData.numpages} pages, checking for text content`);
+  try {
+    const pdfData = await parser.getText();
+    const pageCount = pdfData.total;
 
-  // If we got substantial text, use it
-  if (pdfData.text.trim().length > 100) {
-    progress.complete(`Extracted ${pdfData.text.length} chars via text layer`);
-    logger.info('PDF extraction complete (text layer)', {
-      pages: pdfData.numpages,
-      chars: pdfData.text.length,
-      method: 'pdf-text',
-    });
+    progress.update(50, `Found ${pageCount} pages, checking for text content`);
 
-    return {
-      text: pdfData.text,
-      confidence: 95,
-      pageCount: pdfData.numpages,
-      method: 'pdf-text',
-    };
+    // If we got substantial text, use it
+    if (pdfData.text.trim().length > 100) {
+      progress.complete(`Extracted ${pdfData.text.length} chars via text layer`);
+      logger.info('PDF extraction complete (text layer)', {
+        pages: pageCount,
+        chars: pdfData.text.length,
+        method: 'pdf-text',
+      });
+
+      return {
+        text: pdfData.text,
+        confidence: 95,
+        pageCount,
+        method: 'pdf-text',
+      };
+    }
+
+    // Fall back to OCR
+    progress.update(60, 'Text layer empty, converting to images for OCR');
+    return extractFromPDFWithOCR(filePath, pageCount, progress);
+  } finally {
+    await parser.destroy();
   }
-
-  // Fall back to OCR
-  progress.update(60, 'Text layer empty, converting to images for OCR');
-  return extractFromPDFWithOCR(filePath, pdfData.numpages, progress);
 }
 
 /**

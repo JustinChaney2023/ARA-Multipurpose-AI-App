@@ -86,10 +86,10 @@ foreach ($model in $Models) {
             AverageSeconds = [math]::Round($avg, 1)
             MinSeconds = [math]::Round($min, 1)
             MaxSeconds = [math]::Round($max, 1)
-            Rating = if ($avg -lt 5) { "⭐ Excellent" } 
-                     elseif ($avg -lt 10) { "✅ Good" } 
-                     elseif ($avg -lt 20) { "⚠️ Slow" } 
-                     else { "❌ Too Slow" }
+            Rating = if ($avg -lt 5) { "Excellent" }
+                       elseif ($avg -lt 10) { "Good" }
+                       elseif ($avg -lt 20) { "Slow" }
+                       else { "Too Slow" }
         }
     }
     else {
@@ -98,7 +98,7 @@ foreach ($model in $Models) {
             AverageSeconds = "FAILED"
             MinSeconds = "-"
             MaxSeconds = "-"
-            Rating = "❌ Error"
+            Rating = "Error"
         }
     }
     

@@ -24,19 +24,19 @@ print_header() {
 }
 
 print_success() {
-    echo -e "${GREEN}✓ $1${NC}"
+    echo -e "${GREEN}[OK] $1${NC}"
 }
 
 print_warning() {
-    echo -e "${YELLOW}⚠ $1${NC}"
+    echo -e "${YELLOW}[WARN] $1${NC}"
 }
 
 print_error() {
-    echo -e "${RED}✗ $1${NC}"
+    echo -e "${RED}[ERROR] $1${NC}"
 }
 
 print_info() {
-    echo -e "${BLUE}→ $1${NC}"
+    echo -e "${BLUE}-> $1${NC}"
 }
 
 print_step() {
@@ -77,17 +77,18 @@ print_step "1" "Checking Node.js installation"
 if command_exists node; then
     NODE_VERSION=$(node --version | cut -d'v' -f2)
     NODE_MAJOR=$(echo "$NODE_VERSION" | cut -d'.' -f1)
+    NODE_MINOR=$(echo "$NODE_VERSION" | cut -d'.' -f2)
     
-    if [ "$NODE_MAJOR" -ge 18 ]; then
-        print_success "Node.js ${NODE_VERSION} found (>= 18.0.0)"
+    if [ "$NODE_MAJOR" -gt 20 ] || { [ "$NODE_MAJOR" -eq 20 ] && [ "$NODE_MINOR" -ge 16 ]; }; then
+        print_success "Node.js ${NODE_VERSION} found (>= 20.16.0)"
     else
-        print_error "Node.js ${NODE_VERSION} found, but >= 18.0.0 is required"
+        print_error "Node.js ${NODE_VERSION} found, but >= 20.16.0 is required"
         print_info "Please upgrade Node.js: https://nodejs.org/"
         exit 1
     fi
 else
     print_error "Node.js not found"
-    print_info "Please install Node.js 18+: https://nodejs.org/"
+    print_info "Please install Node.js 20.16+: https://nodejs.org/"
     
     if [ "$OS" == "macos" ]; then
         print_info "Or run: brew install node@20"
