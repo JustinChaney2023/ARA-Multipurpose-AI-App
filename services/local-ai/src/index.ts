@@ -446,6 +446,25 @@ app.post(
         textLength: ocrResult.text.length,
       });
 
+      // Reject documents that produced no usable text — prevents the LLM from
+      // hallucinating content based on prior patient context when the upload is
+      // a non-medical image or an unreadable scan.
+      const ocrWords = ocrResult.text.trim().split(/\s+/).filter(Boolean).length;
+      if (ocrWords < 10) {
+        progress.complete('No readable text found');
+        await fs
+          .unlink(filePath)
+          .catch(err =>
+            logger.warn('Upload cleanup failed', { path: filePath, error: (err as Error).message })
+          );
+        return res.status(422).json({
+          error: {
+            message:
+              'No readable text was found in this document. Make sure the image is clear and contains care notes.',
+          },
+        });
+      }
+
       // Clean up the uploaded file early — we now have the text in memory.
       await fs
         .unlink(filePath)

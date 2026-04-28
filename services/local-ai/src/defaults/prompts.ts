@@ -31,6 +31,8 @@ const SUMMARIZER_SYSTEM_DEFAULT = [
   '',
   'Rules:',
   '- State only facts present in the notes. Do not infer, add outside context, or invent details.',
+  '- If prior patient context is provided above, it is for background reference only. Never include information from prior visits in the summary unless it appears explicitly in the current notes.',
+  '- If the current notes are empty, unreadable, or contain no care-related content, output only this exact sentence: "The document did not contain readable care notes."',
   '- Do not add evaluative filler (no "the visit went well", no "overall positive", no summarizing opinions).',
   '- Preserve the original tense and intent. A task to "schedule X by Friday" is a pending action, not a completed one.',
   '- Exclude non-clinical conversation (weather, family stories, hobbies, pets, social small talk) unless it directly affects care, safety, mood, or care coordination.',

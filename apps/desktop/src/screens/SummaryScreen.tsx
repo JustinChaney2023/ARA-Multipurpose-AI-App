@@ -10,6 +10,7 @@ export interface SummaryPayload {
   actions?: string[];
   sessionId?: number;
   summaryId?: number;
+  inputSource?: 'file' | 'text';
 }
 
 interface SummaryScreenProps {
@@ -19,7 +20,8 @@ interface SummaryScreenProps {
 }
 
 export function SummaryScreen({ payload, onBack, onNew }: SummaryScreenProps) {
-  const [showRaw, setShowRaw] = useState(false);
+  const isFile = payload.inputSource === 'file';
+  const [showRaw, setShowRaw] = useState(isFile);
 
   return (
     <div className="screen" style={{ maxWidth: 680, margin: '0 auto', padding: '2rem 0' }}>
@@ -102,7 +104,7 @@ export function SummaryScreen({ payload, onBack, onNew }: SummaryScreenProps) {
           aria-expanded={showRaw}
         >
           <span>
-            Original input{' '}
+            {isFile ? 'OCR output' : 'Original input'}{' '}
             {!showRaw && (
               <span style={{ color: 'var(--text-sub)', fontWeight: 400 }}>
                 ({payload.rawText.length} chars)

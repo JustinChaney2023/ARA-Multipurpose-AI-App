@@ -107,7 +107,7 @@ export function ImportScreen({
         throw new Error(d.error?.message || d.error || 'Processing failed');
       }
       const payload: SummaryPayload = await response.json();
-      onSummarized(payload);
+      onSummarized({ ...payload, inputSource: 'file' });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
       setIsProcessing(false);
@@ -137,7 +137,7 @@ export function ImportScreen({
         throw new Error(d.error?.message || d.error || 'Processing failed');
       }
       const payload: SummaryPayload = await response.json();
-      onSummarized(payload);
+      onSummarized({ ...payload, inputSource: 'text' });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Processing failed');
       setIsProcessing(false);
