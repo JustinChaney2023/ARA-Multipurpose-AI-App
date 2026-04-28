@@ -1,17 +1,6 @@
-/**
- * Settings — Prompts editor.
- *
- * Surface for the Phase 2 editable-prompts feature. Lists every prompt the
- * service exposes, lets the user edit the body in a textarea, save, and reset
- * to the factory default. Variable placeholders the prompt accepts (e.g.
- * `{{rawText}}`) are extracted from the default body and shown as chips under
- * the editor so users know what tokens stay live.
- *
- * No routing library — parent App.tsx flips a screen state between 'settings'
- * and the others, matching the rest of the app's conditional-rendering flow.
- */
-
 import { useEffect, useMemo, useState } from 'react';
+
+import { Btn, Card } from '../components/ui';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
@@ -28,34 +17,23 @@ interface Props {
   onBack: () => void;
 }
 
-/**
- * Pull out `{{varName}}` placeholders from a template. Used to show the user
- * which variables are available while editing — if they remove a placeholder
- * the runtime will still render, it just won't substitute the value.
- */
 function extractPlaceholders(body: string): string[] {
   const found = new Set<string>();
   const regex = /\{\{(\w+)\}\}/g;
   let match;
-  while ((match = regex.exec(body)) !== null) {
-    found.add(match[1]);
-  }
+  while ((match = regex.exec(body)) !== null) found.add(match[1]);
   return Array.from(found).sort();
 }
 
 export function SettingsScreen({ onBack }: Props) {
   const [prompts, setPrompts] = useState<PromptRecord[] | null>(null);
   const [selectedName, setSelectedName] = useState<string | null>(null);
-  // Draft body — separate from the server-state prompt so typing in the editor
-  // doesn't fight with the "isDefault" indicator. Saved on explicit Save click.
   const [draft, setDraft] = useState<string>('');
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [statusNote, setStatusNote] = useState<string | null>(null);
 
-  // Load the list on mount. One request; if it fails, show the error with a
-  // retry — the service might be starting up or Ollama warming.
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
@@ -65,162 +43,124 @@ export function SettingsScreen({ onBack }: Props) {
         const data = await res.json();
         if (cancelled) return;
         setPrompts(data.prompts);
-        // Auto-select the first one so the user sees an editor without a click.
         if (data.prompts.length > 0) {
           setSelectedName(data.prompts[0].name);
           setDraft(data.prompts[0].body);
         }
         setLoadError(null);
       } catch (err) {
-        if (cancelled) return;
-        setLoadError(err instanceof Error ? err.message : 'Failed to load prompts');
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load prompts');
       }
     };
     load();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
-  const selected = useMemo(
-    () => prompts?.find(p => p.name === selectedName) ?? null,
-    [prompts, selectedName]
-  );
+  const selected = useMemo(() => prompts?.find(p => p.name === selectedName) ?? null, [prompts, selectedName]);
 
-  // When the user picks a different prompt, swap the draft to match that
-  // prompt's current body. If there are unsaved edits, confirm before discarding.
   const handleSelect = (name: string) => {
-    if (dirty) {
-      const ok = window.confirm('You have unsaved changes. Discard them?');
-      if (!ok) return;
-    }
+    if (dirty && !window.confirm('You have unsaved changes. Discard them?')) return;
     const next = prompts?.find(p => p.name === name);
     if (!next) return;
-    setSelectedName(name);
-    setDraft(next.body);
-    setSaveError(null);
-    setStatusNote(null);
+    setSelectedName(name); setDraft(next.body); setSaveError(null); setStatusNote(null);
   };
 
   const handleSave = async () => {
     if (!selected) return;
-    setSaving(true);
-    setSaveError(null);
-    setStatusNote(null);
+    setSaving(true); setSaveError(null); setStatusNote(null);
     try {
       const res = await fetch(`${API_BASE_URL}/prompts/${selected.name}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ body: draft }),
       });
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
       const updated: PromptRecord = await res.json();
-      setPrompts(prev => prev?.map(p => (p.name === updated.name ? updated : p)) ?? null);
+      setPrompts(prev => prev?.map(p => p.name === updated.name ? updated : p) ?? null);
       setDraft(updated.body);
       setStatusNote('Saved. Takes effect on the next summary.');
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Save failed');
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   };
 
   const handleReset = async () => {
     if (!selected) return;
-    // Intentional: no confirmation dialog. The action is fully reversible —
-    // the user can edit back to a prior body from memory, and the default is
-    // always visible in the "Factory default" preview below.
-    setSaving(true);
-    setSaveError(null);
-    setStatusNote(null);
+    setSaving(true); setSaveError(null); setStatusNote(null);
     try {
-      const res = await fetch(`${API_BASE_URL}/prompts/${selected.name}/reset`, {
-        method: 'POST',
-      });
+      const res = await fetch(`${API_BASE_URL}/prompts/${selected.name}/reset`, { method: 'POST' });
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
       const updated: PromptRecord = await res.json();
-      setPrompts(prev => prev?.map(p => (p.name === updated.name ? updated : p)) ?? null);
-      setDraft(updated.body);
-      setStatusNote('Reset to default.');
+      setPrompts(prev => prev?.map(p => p.name === updated.name ? updated : p) ?? null);
+      setDraft(updated.body); setStatusNote('Reset to default.');
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Reset failed');
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   };
 
-  const placeholders = useMemo(
-    () => (selected ? extractPlaceholders(selected.defaultBody) : []),
-    [selected]
-  );
-
+  const placeholders = useMemo(() => selected ? extractPlaceholders(selected.defaultBody) : [], [selected]);
   const dirty = selected !== null && draft !== selected.body;
 
   return (
-    <div className="screen">
+    <div className="screen" style={{ maxWidth: 760, margin: '0 auto', padding: '2rem 0' }}>
+      {/* Header */}
       <div className="settings-header">
-        <h2>Settings — Prompts</h2>
-        <button onClick={onBack} className="btn btn-secondary">
-          Back
-        </button>
+        <Btn variant="secondary" size="sm" onClick={onBack}>← Back</Btn>
+        <h2>Settings</h2>
       </div>
 
+      {/* Load error */}
       {loadError && (
-        <div
-          className="card"
-          style={{ background: '#fef2f2', borderColor: '#fecaca', color: '#991b1b' }}
-        >
-          Could not load prompts: {loadError}. Make sure the local-ai service is running.
-        </div>
+        <Card style={{ background: 'var(--red-dim)', border: '1px solid var(--red)' }}>
+          <span style={{ color: 'var(--red)', fontSize: 13 }}>
+            Could not load prompts: {loadError}. Make sure the local-ai service is running.
+          </span>
+        </Card>
       )}
 
       {prompts && (
-        <div className="settings-body" style={{ display: 'flex', gap: '1rem' }}>
-          {/* Left rail: prompt picker. Thin list, selection highlights. */}
-          <aside className="prompt-list" style={{ minWidth: 220 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr', gap: '0.75rem' }}>
+          {/* Left nav */}
+          <div>
+            <div style={{
+              fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
+              letterSpacing: '0.1em', color: 'var(--text-sub)', padding: '4px 8px', marginBottom: 4,
+            }}>
+              AI Prompts
+            </div>
             {prompts.map(p => (
               <button
                 key={p.name}
                 onClick={() => handleSelect(p.name)}
-                className={`prompt-list-item ${selectedName === p.name ? 'active' : ''}`}
-                style={{
-                  display: 'block',
-                  width: '100%',
-                  textAlign: 'left',
-                  padding: '0.5rem 0.75rem',
-                  marginBottom: 4,
-                  background: selectedName === p.name ? '#e8f0fe' : 'transparent',
-                  border: '1px solid #d0d7de',
-                  borderRadius: 4,
-                  cursor: 'pointer',
-                }}
+                className={`prompt-list-item${selectedName === p.name ? ' active' : ''}`}
               >
-                <div style={{ fontFamily: 'monospace', fontSize: 13 }}>{p.name}</div>
-                {!p.isDefault && <span style={{ fontSize: 11, color: '#0969da' }}>customized</span>}
+                <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: 12 }}>{p.name}</span>
+                {!p.isDefault && (
+                  <span style={{ display: 'block', fontSize: 10, color: 'var(--amber)', marginTop: 1 }}>
+                    customized
+                  </span>
+                )}
               </button>
             ))}
-          </aside>
+          </div>
 
-          {/* Right pane: editor for the selected prompt. */}
+          {/* Editor pane */}
           {selected ? (
-            <section style={{ flex: 1 }}>
-              <p style={{ color: '#57606a', marginTop: 0 }}>{selected.description}</p>
+            <Card style={{ marginBottom: 0 }}>
+              <div style={{ marginBottom: '1rem', paddingBottom: '0.75rem', borderBottom: '1px solid var(--border)' }}>
+                <div style={{ fontWeight: 600, marginBottom: 4 }}>{selected.name}</div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{selected.description}</div>
+              </div>
 
+              {/* Variable chips */}
               {placeholders.length > 0 && (
-                <div style={{ marginBottom: 8, fontSize: 13 }}>
-                  <strong>Available variables:</strong>{' '}
+                <div style={{ marginBottom: 10, fontSize: 12 }}>
+                  <span style={{ color: 'var(--text-muted)', marginRight: 6 }}>Variables:</span>
                   {placeholders.map(v => (
-                    <code
-                      key={v}
-                      style={{
-                        background: '#f6f8fa',
-                        padding: '2px 6px',
-                        borderRadius: 3,
-                        marginRight: 6,
-                      }}
-                    >
-                      {`{{${v}}}`}
-                    </code>
+                    <code key={v} style={{
+                      background: 'var(--surface2)', border: '1px solid var(--border2)',
+                      padding: '1px 6px', borderRadius: 4, marginRight: 6, fontSize: 11,
+                      color: 'var(--accent)', fontFamily: 'ui-monospace, monospace',
+                    }}>{`{{${v}}}`}</code>
                   ))}
                 </div>
               )}
@@ -229,81 +169,56 @@ export function SettingsScreen({ onBack }: Props) {
                 value={draft}
                 onChange={e => setDraft(e.target.value)}
                 spellCheck={false}
+                rows={12}
                 style={{
-                  width: '100%',
-                  minHeight: 320,
-                  fontFamily: 'ui-monospace, Menlo, monospace',
-                  fontSize: 13,
-                  padding: 8,
-                  border: '1px solid #d0d7de',
-                  borderRadius: 4,
-                  resize: 'vertical',
+                  width: '100%', padding: '10px 12px',
+                  background: 'var(--bg)', border: '1px solid var(--border2)',
+                  borderRadius: 'var(--radius)', color: 'var(--text)',
+                  fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 12.5,
+                  lineHeight: 1.65, resize: 'vertical', outline: 'none', marginBottom: '0.75rem',
                 }}
+                onFocus={e => (e.target.style.borderColor = 'var(--accent)')}
+                onBlur={e => (e.target.style.borderColor = 'var(--border2)')}
               />
 
-              <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center' }}>
-                <button
-                  onClick={handleSave}
-                  disabled={!dirty || saving}
-                  className="btn btn-primary"
-                >
-                  {saving ? 'Saving…' : 'Save'}
-                </button>
-                <button
-                  onClick={handleReset}
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <Btn onClick={handleSave} disabled={!dirty || saving}>
+                  {saving ? 'Saving…' : 'Save changes'}
+                </Btn>
+                <Btn variant="secondary" onClick={handleReset}
                   disabled={selected.isDefault || saving}
-                  className="btn btn-secondary"
-                  title={
-                    selected.isDefault
-                      ? 'Already at factory default'
-                      : 'Restore the factory default body'
-                  }
-                >
+                  title={selected.isDefault ? 'Already at factory default' : 'Restore factory default'}>
                   Reset to default
-                </button>
-                <span style={{ fontSize: 12, color: '#57606a' }}>
+                </Btn>
+                <span style={{ fontSize: 11, color: 'var(--text-sub)' }}>
                   Updated {new Date(selected.updatedAt).toLocaleString()}
                 </span>
               </div>
 
               {statusNote && (
-                <div style={{ color: '#1a7f37', fontSize: 13, marginTop: 8 }}>{statusNote}</div>
+                <div style={{ color: 'var(--green)', fontSize: 13, marginTop: 10 }}>{statusNote}</div>
               )}
               {saveError && (
-                <div
-                  className="card"
-                  style={{
-                    marginTop: 8,
-                    background: '#fef2f2',
-                    borderColor: '#fecaca',
-                    color: '#991b1b',
-                  }}
-                >
-                  {saveError}
-                </div>
+                <div style={{ color: 'var(--red)', fontSize: 13, marginTop: 10 }}>{saveError}</div>
               )}
 
-              {/* Factory default preview — collapsed by default so the editor
-                  gets the vertical space. Useful when the user wants to mentally
-                  diff their edit against the original. */}
+              {/* Factory default collapsible */}
               <details style={{ marginTop: 16 }}>
-                <summary style={{ cursor: 'pointer' }}>Factory default (read-only)</summary>
-                <pre
-                  style={{
-                    background: '#f6f8fa',
-                    padding: 12,
-                    borderRadius: 4,
-                    whiteSpace: 'pre-wrap',
-                    fontSize: 12,
-                    marginTop: 8,
-                  }}
-                >
+                <summary style={{ cursor: 'pointer', fontSize: 12, color: 'var(--text-muted)' }}>
+                  Factory default (read-only)
+                </summary>
+                <pre style={{
+                  background: 'var(--bg)', padding: '10px 12px', borderRadius: 6,
+                  border: '1px solid var(--border)', whiteSpace: 'pre-wrap', fontSize: 12,
+                  marginTop: 8, color: 'var(--text-muted)', fontFamily: 'ui-monospace, monospace',
+                  lineHeight: 1.6,
+                }}>
                   {selected.defaultBody}
                 </pre>
               </details>
-            </section>
+            </Card>
           ) : (
-            <p>No prompts available.</p>
+            <p style={{ color: 'var(--text-muted)' }}>No prompts available.</p>
           )}
         </div>
       )}
