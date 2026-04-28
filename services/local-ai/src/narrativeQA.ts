@@ -811,7 +811,10 @@ function buildFormFromAnswers(
     // If transcript has content not captured in other fields, add it here
     const remainingContent = transcript.substring(usedContent.length).trim();
     if (remainingContent.length > 50 && remainingContent !== usedContent) {
-      form.narrative.additionalNotes = `Additional transcript content: ${remainingContent.substring(0, 1000)}`;
+      form.narrative.additionalNotes = `Additional transcript content: ${remainingContent.substring(
+        0,
+        1000
+      )}`;
     } else {
       form.narrative.additionalNotes = 'No additional notes.';
     }

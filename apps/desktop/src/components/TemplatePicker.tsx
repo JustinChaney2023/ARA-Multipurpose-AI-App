@@ -208,9 +208,7 @@ export function TemplatePicker({ onSelect }: TemplatePickerProps) {
             {/* Templates List */}
             <div style={{ overflow: 'auto', flex: 1 }}>
               {Object.entries(filteredCategories).length === 0 ? (
-                <p
-                  style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem 0' }}
-                >
+                <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem 0' }}>
                   No templates found
                 </p>
               ) : (

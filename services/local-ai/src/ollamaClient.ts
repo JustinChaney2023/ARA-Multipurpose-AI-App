@@ -241,7 +241,9 @@ export class OllamaClient {
         if (attempt < maxRetries) {
           const delay = Math.min(1000 * Math.pow(2, attempt), 10000); // Exponential backoff, max 10s
           logger.warn(
-            `Ollama request failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${delay}ms`,
+            `Ollama request failed (attempt ${attempt + 1}/${
+              maxRetries + 1
+            }), retrying in ${delay}ms`,
             {
               error: lastError.message,
             }

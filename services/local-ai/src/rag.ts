@@ -207,7 +207,9 @@ export async function queryRagContext(
 
   const context =
     snippets.length > 0
-      ? `[REFERENCE ONLY — prior visits for this patient. Do NOT include any of this in the summary unless the same information appears explicitly in the current notes below.]\n${snippets.map((s, i) => `[${i + 1}] ${s}`).join('\n\n')}\n\n`
+      ? `[REFERENCE ONLY — prior visits for this patient. Do NOT include any of this in the summary unless the same information appears explicitly in the current notes below.]\n${snippets
+          .map((s, i) => `[${i + 1}] ${s}`)
+          .join('\n\n')}\n\n`
       : '';
 
   logger.info('[RAG] Context retrieved', { patientId, records: sources.length, k });

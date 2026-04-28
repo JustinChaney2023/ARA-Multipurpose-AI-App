@@ -216,7 +216,10 @@ export async function autoFormatDate(value: string): Promise<string> {
       dayNum = daysInMonth;
     }
 
-    const formatted = `${String(monthNum).padStart(2, '0')}/${String(dayNum).padStart(2, '0')}/${year}`;
+    const formatted = `${String(monthNum).padStart(2, '0')}/${String(dayNum).padStart(
+      2,
+      '0'
+    )}/${year}`;
     return formatted;
   }
 
@@ -252,7 +255,10 @@ export async function autoFormatDate(value: string): Promise<string> {
         dayNum = daysInMonth;
       }
 
-      const formatted = `${String(monthNum).padStart(2, '0')}/${String(dayNum).padStart(2, '0')}/${year}`;
+      const formatted = `${String(monthNum).padStart(2, '0')}/${String(dayNum).padStart(
+        2,
+        '0'
+      )}/${year}`;
       return formatted;
     }
   }
@@ -290,7 +296,10 @@ export async function autoFormatDate(value: string): Promise<string> {
       dayNum = daysInMonth;
     }
 
-    const formatted = `${String(monthNum).padStart(2, '0')}/${String(dayNum).padStart(2, '0')}/${year}`;
+    const formatted = `${String(monthNum).padStart(2, '0')}/${String(dayNum).padStart(
+      2,
+      '0'
+    )}/${year}`;
     return formatted;
   }
 

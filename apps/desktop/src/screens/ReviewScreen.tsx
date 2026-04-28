@@ -316,7 +316,9 @@ export function ReviewScreen({
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = url;
-      anchor.download = `care-form-${form.header.recipientName || 'draft'}-${form.header.date || new Date().toISOString().split('T')[0]}.pdf`;
+      anchor.download = `care-form-${form.header.recipientName || 'draft'}-${
+        form.header.date || new Date().toISOString().split('T')[0]
+      }.pdf`;
       anchor.click();
       // Delay revocation so Safari has time to start the download.
       setTimeout(() => URL.revokeObjectURL(url), 1000);
