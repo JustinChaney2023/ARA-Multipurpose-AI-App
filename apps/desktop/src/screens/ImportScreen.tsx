@@ -176,6 +176,7 @@ export function ImportScreen({
   };
 
   const aiOnline = ollamaStatus === 'connected';
+  const aiChecking = ollamaStatus === 'checking';
 
   return (
     <div className="screen" style={{ maxWidth: 620, margin: '0 auto', padding: '2rem 0' }}>
@@ -189,12 +190,30 @@ export function ImportScreen({
           background: 'var(--surface)',
           border: '1px solid var(--border)',
           borderRadius: 'var(--radius)',
-          marginBottom: '1.25rem',
+          marginBottom: aiOnline || aiChecking ? '1.25rem' : '0.5rem',
         }}
       >
         <span style={{ fontWeight: 500, fontSize: 13 }}>AI Assistant</span>
         <StatusDot online={aiOnline} />
       </div>
+
+      {/* AI offline banner */}
+      {!aiOnline && !aiChecking && (
+        <div
+          style={{
+            padding: '8px 14px',
+            background: 'var(--red-dim)',
+            border: '1px solid var(--red)',
+            borderRadius: 'var(--radius)',
+            marginBottom: '1.25rem',
+            fontSize: 12,
+            color: 'var(--red)',
+          }}
+        >
+          The AI service is offline. Start the local-ai service to enable OCR summarization. You can
+          still fill out the form manually below.
+        </div>
+      )}
 
       {/* Tab switcher */}
       <div className="input-tabs">
@@ -224,8 +243,8 @@ export function ImportScreen({
               if (f.length > 0) processFile(f[0]);
             }}
             style={{
-              opacity: isProcessing ? 0.5 : 1,
-              pointerEvents: isProcessing ? 'none' : 'auto',
+              opacity: isProcessing || !aiOnline ? 0.5 : 1,
+              pointerEvents: isProcessing || !aiOnline ? 'none' : 'auto',
             }}
           >
             <input
@@ -285,7 +304,7 @@ export function ImportScreen({
       {/* Text paste */}
       {activeTab === 'text' && (
         <Card>
-          <TextInputForm onSubmit={processText} disabled={isProcessing} />
+          <TextInputForm onSubmit={processText} disabled={isProcessing} aiOnline={aiOnline} />
         </Card>
       )}
 
@@ -337,9 +356,11 @@ export function ImportScreen({
 function TextInputForm({
   onSubmit,
   disabled,
+  aiOnline = true,
 }: {
   onSubmit: (text: string) => void;
   disabled?: boolean;
+  aiOnline?: boolean;
 }) {
   const [text, setText] = useState('');
 
@@ -356,11 +377,11 @@ function TextInputForm({
         onChange={e => setText(e.target.value)}
         placeholder="Patient was visited on… vitals checked… medications administered…"
         rows={9}
-        disabled={disabled}
+        disabled={disabled || !aiOnline}
         className="text-input-area"
       />
       <div className="text-input-actions">
-        <Btn type="submit" disabled={disabled || !text.trim()} style={{ flex: 1 }}>
+        <Btn type="submit" disabled={disabled || !aiOnline || !text.trim()} style={{ flex: 1 }}>
           {disabled ? 'Processing…' : 'Summarize with AI'}
         </Btn>
         <Btn

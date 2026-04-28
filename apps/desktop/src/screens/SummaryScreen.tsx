@@ -44,8 +44,8 @@ export function SummaryScreen({ payload, onBack, onNew }: SummaryScreenProps) {
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <CopyBtn text={payload.summary} label="Copy summary" />
-          <Btn variant="secondary" size="sm">
-            ↓ Export
+          <Btn variant="secondary" size="sm" onClick={() => window.print()}>
+            ↓ Print
           </Btn>
         </div>
       </div>

@@ -40,7 +40,7 @@ interface ConfidenceDotProps {
 
 function ConfidenceDot({ field, confidenceMap }: ConfidenceDotProps) {
   const level = confidenceMap.get(field)?.confidence || 'low';
-  const colors = { high: '#22c55e', medium: '#f59e0b', low: '#ef4444' };
+  const colors = { high: 'var(--green)', medium: 'var(--amber)', low: 'var(--red)' };
   return (
     <span
       title={`${level} confidence`}
@@ -67,7 +67,7 @@ function ValidationIndicator({ field, validation }: ValidationIndicatorProps) {
     return (
       <span
         style={{
-          color: '#dc2626',
+          color: 'var(--red)',
           fontSize: '0.75rem',
           marginLeft: '0.5rem',
           display: 'flex',
@@ -75,7 +75,7 @@ function ValidationIndicator({ field, validation }: ValidationIndicatorProps) {
           gap: '0.25rem',
         }}
       >
-        <Icon name="cross" size={12} color="#dc2626" /> {error.message}
+        <Icon name="cross" size={12} color="var(--red)" /> {error.message}
       </span>
     );
   }
@@ -84,7 +84,7 @@ function ValidationIndicator({ field, validation }: ValidationIndicatorProps) {
     return (
       <span
         style={{
-          color: '#f59e0b',
+          color: 'var(--amber)',
           fontSize: '0.75rem',
           marginLeft: '0.5rem',
           display: 'flex',
@@ -92,7 +92,7 @@ function ValidationIndicator({ field, validation }: ValidationIndicatorProps) {
           gap: '0.25rem',
         }}
       >
-        <Icon name="warning" size={12} color="#f59e0b" /> {warning.message}
+        <Icon name="warning" size={12} color="var(--amber)" /> {warning.message}
       </span>
     );
   }
@@ -327,7 +327,7 @@ export function ReviewScreen({
       saveToQuickHistory(result);
       setHistoryKey(prev => prev + 1);
     } catch {
-      alert('Export failed. Please try again.');
+      setExportError('Export failed. Please try again.');
     } finally {
       setIsExporting(false);
     }
@@ -368,15 +368,18 @@ export function ReviewScreen({
   }, [form]);
 
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const handleGenerateSummary = async () => {
     const rawText = formToRawText();
     if (!rawText.trim()) {
-      alert('Please fill in some narrative fields before generating a summary.');
+      setGenerateError('Fill in at least one narrative field before generating a summary.');
       return;
     }
 
     setIsGeneratingSummary(true);
+    setGenerateError(null);
     try {
       const response = await fetch(`${API_BASE_URL}/summarize`, {
         method: 'POST',
@@ -390,9 +393,9 @@ export function ReviewScreen({
       }
 
       const payload: SummaryPayload = await response.json();
-      onSummarized(payload);
+      onSummarized({ ...payload, inputSource: 'text' });
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to generate summary');
+      setGenerateError(err instanceof Error ? err.message : 'Failed to generate summary');
     } finally {
       setIsGeneratingSummary(false);
     }
@@ -439,7 +442,7 @@ export function ReviewScreen({
             onClick={e => e.stopPropagation()}
           >
             <h3>Reset to AI Extraction?</h3>
-            <p style={{ color: 'var(--color-text-muted)' }}>
+            <p style={{ color: 'var(--text-muted)' }}>
               This will discard all your edits and restore the original AI-extracted values.
             </p>
             <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem' }}>
@@ -449,7 +452,7 @@ export function ReviewScreen({
               <button
                 className="btn btn-primary"
                 onClick={handleReset}
-                style={{ background: '#dc2626' }}
+                style={{ background: 'var(--red)', color: '#fff' }}
               >
                 Reset Form
               </button>
@@ -489,7 +492,7 @@ export function ReviewScreen({
       >
         <div>
           <h2 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Review Form</h2>
-          <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem', margin: 0 }}>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', margin: 0 }}>
             {completionPercent}% complete •{' '}
             {isValidating
               ? 'Validating...'
@@ -530,33 +533,27 @@ export function ReviewScreen({
           >
             ↺ Reset
           </button>
-
-          <div style={{ width: 1, background: 'var(--color-border)', margin: '0 0.25rem' }} />
-
-          <button className="btn btn-secondary" onClick={onBack}>
-            ← Back
-          </button>
-          <button className="btn btn-secondary" onClick={() => setShowPreview(true)}>
-            <Icon name="eye" size={16} /> Preview
-          </button>
         </div>
       </div>
 
       {/* Validation Summary */}
       {!validation.valid && (
-        <div className="card" style={{ background: '#fef2f2', borderColor: '#fecaca' }}>
+        <div
+          className="card"
+          style={{ background: 'var(--red-dim)', border: '1px solid var(--red)' }}
+        >
           <h4
             style={{
-              color: '#dc2626',
+              color: 'var(--red)',
               margin: '0 0 0.5rem',
               display: 'flex',
               alignItems: 'center',
               gap: '0.5rem',
             }}
           >
-            <Icon name="warning" size={18} color="#dc2626" /> Required Fields Missing
+            <Icon name="warning" size={18} color="var(--red)" /> Required Fields Missing
           </h4>
-          <ul style={{ margin: 0, paddingLeft: '1.25rem', color: '#991b1b' }}>
+          <ul style={{ margin: 0, paddingLeft: '1.25rem', color: 'var(--red)' }}>
             {validation.errors.map(e => (
               <li key={e.field}>{e.message}</li>
             ))}
@@ -564,33 +561,50 @@ export function ReviewScreen({
         </div>
       )}
 
+      {/* Export error */}
+      {exportError && (
+        <div
+          className="card"
+          style={{ background: 'var(--red-dim)', border: '1px solid var(--red)' }}
+        >
+          <p style={{ color: 'var(--red)', margin: 0, fontSize: '0.875rem' }}>{exportError}</p>
+        </div>
+      )}
+
       {/* Success message */}
       {exportSuccess && (
-        <div className="card" style={{ background: '#dcfce7', borderColor: '#86efac' }}>
+        <div
+          className="card"
+          style={{ background: 'var(--green-dim)', border: '1px solid var(--green)' }}
+        >
           <p
             style={{
-              color: '#166534',
+              color: 'var(--green)',
               margin: 0,
               display: 'flex',
               alignItems: 'center',
               gap: '0.5rem',
             }}
           >
-            <Icon name="check" size={16} color="#166534" /> PDF exported successfully!
+            <Icon name="check" size={16} color="var(--green)" /> PDF exported successfully!
           </p>
         </div>
       )}
 
-      {/* Auto-fix indicator */}
+      {/* Auto-fix / info indicator */}
       {autoFixMessage && (
-        <div className="card" style={{ background: '#eff6ff', borderColor: '#bfdbfe' }}>
+        <div
+          className="card"
+          style={{ background: 'var(--accent-dim)', border: '1px solid var(--accent-glow)' }}
+        >
           <p
             style={{
-              color: '#1e40af',
+              color: 'var(--accent)',
               margin: 0,
               display: 'flex',
               alignItems: 'center',
               gap: '0.5rem',
+              fontSize: '0.875rem',
             }}
           >
             {autoFixMessage}
@@ -598,15 +612,16 @@ export function ReviewScreen({
         </div>
       )}
 
-      {/* Undo indicator */}
+      {/* Undo toast */}
       {showUndoIndicator && (
         <div
           style={{
             position: 'fixed',
             bottom: '1rem',
             right: '1rem',
-            background: '#1e293b',
-            color: 'white',
+            background: 'var(--surface2)',
+            color: 'var(--text)',
+            border: '1px solid var(--border2)',
             padding: '0.5rem 1rem',
             borderRadius: '6px',
             fontSize: '0.875rem',
@@ -646,7 +661,7 @@ export function ReviewScreen({
               placeholder="Client name"
               style={{
                 borderColor: validation.errors.find(e => e.field === 'header.recipientName')
-                  ? '#dc2626'
+                  ? 'var(--red)'
                   : undefined,
               }}
             />
@@ -666,7 +681,7 @@ export function ReviewScreen({
               placeholder="MM/DD/YYYY or 2024-03-15"
               style={{
                 borderColor: validation.errors.find(e => e.field === 'header.date')
-                  ? '#dc2626'
+                  ? 'var(--red)'
                   : undefined,
               }}
             />
@@ -806,14 +821,16 @@ export function ReviewScreen({
             rows={4}
             placeholder={`Enter ${title.toLowerCase()}...`}
             style={{
-              borderColor: validation.warnings.find(w => w.field === field) ? '#f59e0b' : undefined,
+              borderColor: validation.warnings.find(w => w.field === field)
+                ? 'var(--amber)'
+                : undefined,
             }}
           />
         </section>
       ))}
 
       {/* Signature */}
-      <section className="card" style={{ background: '#fafaf9' }}>
+      <section className="card" style={{ background: 'var(--surface2)' }}>
         <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem' }}>Signature</h3>
         <div className="form-grid">
           <div className="form-group">
@@ -840,6 +857,16 @@ export function ReviewScreen({
         </div>
       </section>
 
+      {/* Generate summary error */}
+      {generateError && (
+        <div
+          className="card"
+          style={{ background: 'var(--red-dim)', border: '1px solid var(--red)' }}
+        >
+          <p style={{ color: 'var(--red)', margin: 0, fontSize: '0.875rem' }}>{generateError}</p>
+        </div>
+      )}
+
       {/* Bottom Actions */}
       <div
         style={{
@@ -847,14 +874,17 @@ export function ReviewScreen({
           justifyContent: 'space-between',
           alignItems: 'center',
           padding: '1rem 0',
-          borderTop: '1px solid var(--color-border)',
+          borderTop: '1px solid var(--border)',
           marginTop: '1rem',
         }}
       >
-        <button className="btn btn-secondary" onClick={onNewForm}>
-          <Icon name="plus" size={16} /> New Form
+        <button className="btn btn-secondary" onClick={onBack}>
+          ← Back
         </button>
         <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <button className="btn btn-secondary" onClick={onNewForm}>
+            <Icon name="plus" size={16} /> New Form
+          </button>
           <button
             className="btn btn-secondary"
             onClick={handleGenerateSummary}
