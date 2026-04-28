@@ -5,9 +5,11 @@ import { fileURLToPath } from 'url';
 
 import { PDFParse } from 'pdf-parse';
 import { fromPath } from 'pdf2pic';
+import sharp from 'sharp';
 import { createWorker } from 'tesseract.js';
 
 import { config } from './config/index.js';
+import { runHandwritingOCR } from './handwritingOCR.js';
 import { logger, createProgressTracker } from './logger.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -15,11 +17,19 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Local path to tesseract trained data - ensures offline operation
 const TESSERACT_LANG_PATH = config.ocr.tesseractLangPath || path.join(__dirname, '..');
 
+type OCRMethod = 'pdf-text' | 'pdf-ocr' | 'image-ocr' | 'handwriting-ocr' | 'hybrid-ocr';
+
 export interface OCROutput {
   text: string;
   confidence: number;
   pageCount: number;
-  method: 'pdf-text' | 'pdf-ocr' | 'image-ocr';
+  method: OCRMethod;
+}
+
+interface PageOCRResult {
+  text: string;
+  confidence: number;
+  method: OCRMethod;
 }
 
 /**
@@ -120,7 +130,7 @@ async function extractFromPDFWithOCR(
       langPath: TESSERACT_LANG_PATH,
       logger: m => logger.debug('Tesseract', m),
     });
-    const results: { text: string; confidence: number }[] = [];
+    const results: PageOCRResult[] = [];
 
     try {
       for (let i = 0; i < images.length; i++) {
@@ -136,21 +146,18 @@ async function extractFromPDFWithOCR(
         }
 
         logger.debug(`Processing page ${i + 1}/${images.length}`);
-        const result = await worker.recognize(imagePath);
-        results.push({
-          text: result.data.text,
-          confidence: result.data.confidence,
-        });
+        const result = await runImageOCRPipeline(imagePath, worker);
+        results.push(result);
 
-        logger.debug(`Page ${i + 1} OCR confidence: ${result.data.confidence.toFixed(1)}%`);
+        logger.debug(`Page ${i + 1} OCR confidence: ${result.confidence.toFixed(1)}%`);
       }
     } finally {
       await worker.terminate();
     }
 
     const fullText = results.map(r => r.text).join('\n\n--- Page Break ---\n\n');
-    const avgConfidence =
-      results.length > 0 ? results.reduce((sum, r) => sum + r.confidence, 0) / results.length : 0;
+    const avgConfidence = averageConfidence(results);
+    const method = selectAggregateMethod(results, 'pdf-ocr');
 
     // Clean up
     progress.update(95, 'Cleaning up temporary files');
@@ -165,14 +172,14 @@ async function extractFromPDFWithOCR(
     logger.info('PDF OCR complete', {
       pages: pageCount,
       confidence: avgConfidence,
-      method: 'pdf-ocr',
+      method,
     });
 
     return {
       text: fullText,
       confidence: avgConfidence,
       pageCount,
-      method: 'pdf-ocr',
+      method,
     };
   } finally {
     await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {});
@@ -180,13 +187,13 @@ async function extractFromPDFWithOCR(
 }
 
 /**
- * Extract text from image using tesseract.js
+ * Extract text from image using tesseract.js and optional handwriting OCR.
  */
 async function extractFromImage(
   filePath: string,
   progress: ReturnType<typeof createProgressTracker>
 ): Promise<OCROutput> {
-  progress.start('Starting image OCR with tesseract.js');
+  progress.start('Starting image OCR');
 
   // Use local trained data - no network calls
   const worker = await createWorker('eng', undefined, {
@@ -196,26 +203,163 @@ async function extractFromImage(
 
   try {
     progress.update(30, 'Loading image');
-
     progress.update(60, 'Running OCR');
-    const result = await worker.recognize(filePath);
+    const result = await runImageOCRPipeline(filePath, worker);
 
     progress.update(90, 'Processing results');
 
-    progress.complete(`OCR complete, confidence: ${result.data.confidence.toFixed(1)}%`);
+    progress.complete(`OCR complete, confidence: ${result.confidence.toFixed(1)}%`);
     logger.info('Image OCR complete', {
-      confidence: result.data.confidence,
-      method: 'image-ocr',
-      chars: result.data.text.length,
+      confidence: result.confidence,
+      method: result.method,
+      chars: result.text.length,
     });
 
     return {
-      text: result.data.text,
-      confidence: result.data.confidence,
+      text: result.text,
+      confidence: result.confidence,
       pageCount: 1,
-      method: 'image-ocr',
+      method: result.method,
     };
   } finally {
     await worker.terminate();
   }
+}
+
+async function runImageOCRPipeline(
+  imagePath: string,
+  worker: Awaited<ReturnType<typeof createWorker>>
+): Promise<PageOCRResult> {
+  const prepared = await preprocessImage(imagePath);
+
+  try {
+    const tesseractResult = await worker.recognize(prepared.path);
+    const baseResult: PageOCRResult = {
+      text: tesseractResult.data.text,
+      confidence: tesseractResult.data.confidence,
+      method: 'image-ocr',
+    };
+
+    if (!shouldTryHandwritingOCR(baseResult)) {
+      return baseResult;
+    }
+
+    try {
+      const handwritingResult = await runHandwritingOCR(prepared.path);
+      if (!handwritingResult) {
+        return baseResult;
+      }
+
+      const candidate: PageOCRResult = {
+        text: handwritingResult.text,
+        confidence: handwritingResult.confidence,
+        method: 'handwriting-ocr',
+      };
+
+      if (isBetterOCRResult(candidate, baseResult)) {
+        logger.info('Using handwriting OCR result over tesseract', {
+          tesseractConfidence: baseResult.confidence,
+          handwritingConfidence: candidate.confidence,
+          tesseractChars: baseResult.text.trim().length,
+          handwritingChars: candidate.text.trim().length,
+        });
+        return candidate;
+      }
+    } catch (error) {
+      logger.warn('Handwriting OCR failed, keeping tesseract result', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    return baseResult;
+  } finally {
+    if (prepared.cleanup) {
+      await fs.unlink(prepared.path).catch(() => {});
+    }
+  }
+}
+
+async function preprocessImage(imagePath: string): Promise<{ path: string; cleanup: boolean }> {
+  if (!config.ocr.preprocessing.enabled) {
+    return { path: imagePath, cleanup: false };
+  }
+
+  const outputPath = path.join(
+    os.tmpdir(),
+    `ara-ocr-preprocessed-${Date.now()}-${Math.random().toString(36).slice(2)}.png`
+  );
+
+  try {
+    await sharp(imagePath)
+      .rotate()
+      .grayscale()
+      .normalize()
+      .sharpen()
+      .threshold(180, { grayscale: false })
+      .png()
+      .toFile(outputPath);
+
+    return { path: outputPath, cleanup: true };
+  } catch (error) {
+    logger.warn('Image preprocessing failed, using original image', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return { path: imagePath, cleanup: false };
+  }
+}
+
+function shouldTryHandwritingOCR(result: PageOCRResult): boolean {
+  if (!config.ocr.handwriting.enabled) {
+    return false;
+  }
+
+  return (
+    result.confidence < config.ocr.handwriting.confidenceThreshold ||
+    result.text.trim().length < config.ocr.handwriting.minTextLength
+  );
+}
+
+function isBetterOCRResult(candidate: PageOCRResult, current: PageOCRResult): boolean {
+  const candidateTextLength = candidate.text.trim().length;
+  const currentTextLength = current.text.trim().length;
+
+  if (candidateTextLength < 10) {
+    return false;
+  }
+
+  if (
+    currentTextLength < config.ocr.handwriting.minTextLength &&
+    candidateTextLength > currentTextLength
+  ) {
+    return true;
+  }
+
+  return (
+    candidate.confidence >= current.confidence && candidateTextLength >= currentTextLength * 0.8
+  );
+}
+
+function averageConfidence(results: PageOCRResult[]): number {
+  return results.length > 0
+    ? results.reduce((sum, result) => sum + result.confidence, 0) / results.length
+    : 0;
+}
+
+function selectAggregateMethod(results: PageOCRResult[], fallback: OCRMethod): OCRMethod {
+  if (results.length === 0) {
+    return fallback;
+  }
+
+  const usedHandwriting = results.some(result => result.method === 'handwriting-ocr');
+  const usedTesseract = results.some(result => result.method === 'image-ocr');
+
+  if (usedHandwriting && usedTesseract) {
+    return 'hybrid-ocr';
+  }
+
+  if (usedHandwriting) {
+    return 'handwriting-ocr';
+  }
+
+  return fallback;
 }

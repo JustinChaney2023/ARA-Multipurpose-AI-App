@@ -49,18 +49,19 @@ The setup script will:
 
 ### Optional
 
-| Software   | Version   | Purpose                     |
-| ---------- | --------- | --------------------------- |
-| **Rust**   | >= 1.70.0 | Build desktop app (Tauri)   |
-| **Ollama** | latest    | AI-enhanced text extraction |
-| **Docker** | >= 20.0.0 | Containerized deployment    |
+| Software   | Version   | Purpose                            |
+| ---------- | --------- | ---------------------------------- |
+| **Rust**   | >= 1.70.0 | Build desktop app (Tauri)          |
+| **Ollama** | latest    | AI-enhanced text extraction        |
+| **Python** | >= 3.10   | Optional PaddleOCR handwriting OCR |
+| **Docker** | >= 20.0.0 | Containerized deployment           |
 
 ### Checking Prerequisites
 
 **Windows (PowerShell):**
 
 ```powershell
-node --version    # Should be v18.x.x or higher
+node --version    # Should be v20.16.0 or higher
 npm --version     # Should be 9.x.x or higher
 cargo --version   # Optional - for desktop app
 ollama --version  # Optional - for AI features
@@ -69,7 +70,7 @@ ollama --version  # Optional - for AI features
 **macOS/Linux:**
 
 ```bash
-node --version    # Should be v18.x.x or higher
+node --version    # Should be v20.16.0 or higher
 npm --version     # Should be 9.x.x or higher
 cargo --version   # Optional - for desktop app
 ollama --version  # Optional - for AI features
@@ -233,6 +234,29 @@ sudo yum install -y tesseract tesseract-devel
 # Or on Fedora
 sudo dnf install -y tesseract tesseract-devel
 ```
+
+## Handwriting OCR Setup (Optional)
+
+The app always runs Tesseract locally first. For handwritten notes, install
+PaddleOCR on the local AI service machine so low-confidence image OCR can use
+the handwriting fallback:
+
+```bash
+python -m pip install paddleocr
+```
+
+Useful overrides in `services/local-ai/.env`:
+
+```bash
+HANDWRITING_OCR_ENABLED=true
+HANDWRITING_OCR_PYTHON=python
+HANDWRITING_OCR_DEVICE=cpu
+HANDWRITING_OCR_MODEL=PP-OCRv5_server_rec
+OCR_PREPROCESSING_ENABLED=true
+```
+
+If PaddleOCR is missing or fails, the service keeps the Tesseract result and
+continues processing.
 
 ## Docker Setup
 

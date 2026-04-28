@@ -165,9 +165,13 @@ LOG_LEVEL=info
 OLLAMA_URL=http://localhost:11434
 OLLAMA_MODEL=qwen3:4b-q4_K_M
 DB_PATH=data/ara.db
+HANDWRITING_OCR_ENABLED=true
+OCR_PREPROCESSING_ENABLED=true
 ```
 
-Set `DISABLE_LLM=true` to run without Ollama.
+Set `DISABLE_LLM=true` to run without Ollama. Handwriting OCR is local and
+optional; install it with `python -m pip install paddleocr`. If PaddleOCR is not
+installed, weak image OCR falls back to Tesseract output.
 
 ## Docker Deployment
 

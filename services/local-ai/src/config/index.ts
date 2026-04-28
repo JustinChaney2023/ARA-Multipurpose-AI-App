@@ -23,7 +23,7 @@ const ConfigSchema = z.object({
   ollama: z.object({
     baseUrl: z.string().url().default('http://localhost:11434'),
     // Fallback when OLLAMA_MODEL is not set. Matches the repo's recommended
-    // model (see CLAUDE.md and docs/ollama-models.md). Keep this aligned —
+    // model (see CLAUDE.md and docs/ollama-models.md). Keep this aligned -
     // if a user has no .env, we want them on a capable model, not the tiny default.
     model: z.string().default('qwen3:4b-q4_K_M'),
     // Embedding model for RAG vector search. nomic-embed-text is local, fast
@@ -77,6 +77,22 @@ const ConfigSchema = z.object({
       .default(['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'image/webp']),
     tesseractLangPath: z.string().optional(),
     pdfDensity: z.number().default(300),
+    preprocessing: z
+      .object({
+        enabled: z.boolean().default(true),
+      })
+      .default({}),
+    handwriting: z
+      .object({
+        enabled: z.boolean().default(true),
+        confidenceThreshold: z.number().default(70),
+        minTextLength: z.number().default(40),
+        timeoutMs: z.number().default(120000),
+        pythonCommand: z.string().default('python'),
+        device: z.string().default('cpu'),
+        model: z.string().default('PP-OCRv5_server_rec'),
+      })
+      .default({}),
   }),
 
   // File upload settings
@@ -100,7 +116,7 @@ const ConfigSchema = z.object({
   }),
 
   // Local SQLite persistence (Phase 3). Service-owned so the DB lives with
-  // the LLM for future RAG work — see docs/refactor/phase-3-persistence.md.
+  // the LLM for future RAG work - see docs/refactor/phase-3-persistence.md.
   db: z
     .object({
       // Default path is relative to the service working dir; resolved to absolute
@@ -118,7 +134,7 @@ export type Config = z.infer<typeof ConfigSchema>;
 // ============================================================================
 
 function loadConfig(): Config {
-  // Config loading trace — helpful when debugging model selection issues
+  // Config loading trace - helpful when debugging model selection issues
   // in containerized or scripted environments where env vars may be masked.
   logger.debug(`[CONFIG] Loading with OLLAMA_MODEL: ${process.env.OLLAMA_MODEL}`);
   const rawConfig = {
@@ -193,6 +209,24 @@ function loadConfig(): Config {
       maxFileSize: process.env.MAX_FILE_SIZE ? parseInt(process.env.MAX_FILE_SIZE, 10) : undefined,
       tesseractLangPath: process.env.TESSERACT_LANG_PATH,
       pdfDensity: process.env.PDF_DENSITY ? parseInt(process.env.PDF_DENSITY, 10) : undefined,
+      preprocessing: {
+        enabled: process.env.OCR_PREPROCESSING_ENABLED !== 'false',
+      },
+      handwriting: {
+        enabled: process.env.HANDWRITING_OCR_ENABLED !== 'false',
+        confidenceThreshold: process.env.HANDWRITING_OCR_CONFIDENCE_THRESHOLD
+          ? parseInt(process.env.HANDWRITING_OCR_CONFIDENCE_THRESHOLD, 10)
+          : undefined,
+        minTextLength: process.env.HANDWRITING_OCR_MIN_TEXT_LENGTH
+          ? parseInt(process.env.HANDWRITING_OCR_MIN_TEXT_LENGTH, 10)
+          : undefined,
+        timeoutMs: process.env.HANDWRITING_OCR_TIMEOUT_MS
+          ? parseInt(process.env.HANDWRITING_OCR_TIMEOUT_MS, 10)
+          : undefined,
+        pythonCommand: process.env.HANDWRITING_OCR_PYTHON,
+        device: process.env.HANDWRITING_OCR_DEVICE,
+        model: process.env.HANDWRITING_OCR_MODEL,
+      },
     },
     upload: {
       maxFiles: process.env.UPLOAD_MAX_FILES
@@ -263,6 +297,7 @@ export function getConfigSummary(): Record<string, unknown> {
     ocr: {
       confidenceThreshold: config.ocr.confidenceThreshold,
       maxFileSizeMB: Math.round(config.ocr.maxFileSize / 1024 / 1024),
+      handwriting: config.ocr.handwriting.enabled,
     },
     upload: {
       maxFiles: config.upload.maxFiles,

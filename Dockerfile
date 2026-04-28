@@ -75,6 +75,7 @@ RUN npm ci --only=production && \
 # Copy built artifacts from builder
 COPY --from=builder /app/packages/shared/dist packages/shared/dist
 COPY --from=builder /app/services/local-ai/dist services/local-ai/dist
+COPY --from=builder /app/services/local-ai/scripts services/local-ai/scripts
 COPY --from=builder /app/templates templates
 
 # Create uploads directory and set permissions
