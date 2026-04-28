@@ -112,7 +112,9 @@ export function TemplatePicker({ onSelect }: TemplatePickerProps) {
                 borderBottom: '1px solid var(--border)',
               }}
             >
-              <h2 style={{ fontSize: '1.125rem', fontWeight: 600, margin: 0, color: 'var(--text)' }}>
+              <h2
+                style={{ fontSize: '1.125rem', fontWeight: 600, margin: 0, color: 'var(--text)' }}
+              >
                 Text Templates
               </h2>
               <button

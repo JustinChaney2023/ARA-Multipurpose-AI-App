@@ -87,7 +87,12 @@ export function SummaryScreen({ payload, onBack, onNew }: SummaryScreenProps) {
         (payload.concerns?.length ?? 0) > 0 ||
         (payload.actions?.length ?? 0) > 0) && (
         <div
-          style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem', marginBottom: '0.75rem' }}
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            gap: '0.75rem',
+            marginBottom: '0.75rem',
+          }}
         >
           {payload.keyPoints && payload.keyPoints.length > 0 && (
             <Card style={{ marginBottom: 0 }}>
@@ -103,7 +108,15 @@ export function SummaryScreen({ payload, onBack, onNew }: SummaryScreenProps) {
               >
                 Key Points
               </div>
-              <ul style={{ margin: 0, paddingLeft: '1.1rem', color: 'var(--text)', fontSize: 13, lineHeight: 1.65 }}>
+              <ul
+                style={{
+                  margin: 0,
+                  paddingLeft: '1.1rem',
+                  color: 'var(--text)',
+                  fontSize: 13,
+                  lineHeight: 1.65,
+                }}
+              >
                 {payload.keyPoints.map((pt, i) => (
                   <li key={i}>{pt}</li>
                 ))}
@@ -111,7 +124,13 @@ export function SummaryScreen({ payload, onBack, onNew }: SummaryScreenProps) {
             </Card>
           )}
           {payload.concerns && payload.concerns.length > 0 && (
-            <Card style={{ marginBottom: 0, background: 'var(--red-dim)', border: '1px solid var(--red)' }}>
+            <Card
+              style={{
+                marginBottom: 0,
+                background: 'var(--red-dim)',
+                border: '1px solid var(--red)',
+              }}
+            >
               <div
                 style={{
                   fontSize: 11,
@@ -124,7 +143,15 @@ export function SummaryScreen({ payload, onBack, onNew }: SummaryScreenProps) {
               >
                 Concerns
               </div>
-              <ul style={{ margin: 0, paddingLeft: '1.1rem', color: 'var(--text)', fontSize: 13, lineHeight: 1.65 }}>
+              <ul
+                style={{
+                  margin: 0,
+                  paddingLeft: '1.1rem',
+                  color: 'var(--text)',
+                  fontSize: 13,
+                  lineHeight: 1.65,
+                }}
+              >
                 {payload.concerns.map((c, i) => (
                   <li key={i}>{c}</li>
                 ))}
@@ -132,7 +159,13 @@ export function SummaryScreen({ payload, onBack, onNew }: SummaryScreenProps) {
             </Card>
           )}
           {payload.actions && payload.actions.length > 0 && (
-            <Card style={{ marginBottom: 0, background: 'var(--green-dim)', border: '1px solid var(--green)' }}>
+            <Card
+              style={{
+                marginBottom: 0,
+                background: 'var(--green-dim)',
+                border: '1px solid var(--green)',
+              }}
+            >
               <div
                 style={{
                   fontSize: 11,
@@ -145,7 +178,15 @@ export function SummaryScreen({ payload, onBack, onNew }: SummaryScreenProps) {
               >
                 Follow-up Actions
               </div>
-              <ul style={{ margin: 0, paddingLeft: '1.1rem', color: 'var(--text)', fontSize: 13, lineHeight: 1.65 }}>
+              <ul
+                style={{
+                  margin: 0,
+                  paddingLeft: '1.1rem',
+                  color: 'var(--text)',
+                  fontSize: 13,
+                  lineHeight: 1.65,
+                }}
+              >
                 {payload.actions.map((a, i) => (
                   <li key={i}>{a}</li>
                 ))}
