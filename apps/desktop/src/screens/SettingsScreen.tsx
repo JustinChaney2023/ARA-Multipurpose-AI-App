@@ -53,58 +53,81 @@ export function SettingsScreen({ onBack }: Props) {
       }
     };
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const selected = useMemo(() => prompts?.find(p => p.name === selectedName) ?? null, [prompts, selectedName]);
+  const selected = useMemo(
+    () => prompts?.find(p => p.name === selectedName) ?? null,
+    [prompts, selectedName]
+  );
 
   const handleSelect = (name: string) => {
     if (dirty && !window.confirm('You have unsaved changes. Discard them?')) return;
     const next = prompts?.find(p => p.name === name);
     if (!next) return;
-    setSelectedName(name); setDraft(next.body); setSaveError(null); setStatusNote(null);
+    setSelectedName(name);
+    setDraft(next.body);
+    setSaveError(null);
+    setStatusNote(null);
   };
 
   const handleSave = async () => {
     if (!selected) return;
-    setSaving(true); setSaveError(null); setStatusNote(null);
+    setSaving(true);
+    setSaveError(null);
+    setStatusNote(null);
     try {
       const res = await fetch(`${API_BASE_URL}/prompts/${selected.name}`, {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ body: draft }),
       });
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
       const updated: PromptRecord = await res.json();
-      setPrompts(prev => prev?.map(p => p.name === updated.name ? updated : p) ?? null);
+      setPrompts(prev => prev?.map(p => (p.name === updated.name ? updated : p)) ?? null);
       setDraft(updated.body);
       setStatusNote('Saved. Takes effect on the next summary.');
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Save failed');
-    } finally { setSaving(false); }
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleReset = async () => {
     if (!selected) return;
-    setSaving(true); setSaveError(null); setStatusNote(null);
+    setSaving(true);
+    setSaveError(null);
+    setStatusNote(null);
     try {
       const res = await fetch(`${API_BASE_URL}/prompts/${selected.name}/reset`, { method: 'POST' });
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
       const updated: PromptRecord = await res.json();
-      setPrompts(prev => prev?.map(p => p.name === updated.name ? updated : p) ?? null);
-      setDraft(updated.body); setStatusNote('Reset to default.');
+      setPrompts(prev => prev?.map(p => (p.name === updated.name ? updated : p)) ?? null);
+      setDraft(updated.body);
+      setStatusNote('Reset to default.');
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Reset failed');
-    } finally { setSaving(false); }
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const placeholders = useMemo(() => selected ? extractPlaceholders(selected.defaultBody) : [], [selected]);
+  const placeholders = useMemo(
+    () => (selected ? extractPlaceholders(selected.defaultBody) : []),
+    [selected]
+  );
   const dirty = selected !== null && draft !== selected.body;
 
   return (
     <div className="screen" style={{ maxWidth: 760, margin: '0 auto', padding: '2rem 0' }}>
       {/* Header */}
       <div className="settings-header">
-        <Btn variant="secondary" size="sm" onClick={onBack}>← Back</Btn>
+        <Btn variant="secondary" size="sm" onClick={onBack}>
+          ← Back
+        </Btn>
         <h2>Settings</h2>
       </div>
 
@@ -121,10 +144,17 @@ export function SettingsScreen({ onBack }: Props) {
         <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr', gap: '0.75rem' }}>
           {/* Left nav */}
           <div>
-            <div style={{
-              fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
-              letterSpacing: '0.1em', color: 'var(--text-sub)', padding: '4px 8px', marginBottom: 4,
-            }}>
+            <div
+              style={{
+                fontSize: 10,
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.1em',
+                color: 'var(--text-sub)',
+                padding: '4px 8px',
+                marginBottom: 4,
+              }}
+            >
               AI Prompts
             </div>
             {prompts.map(p => (
@@ -133,9 +163,13 @@ export function SettingsScreen({ onBack }: Props) {
                 onClick={() => handleSelect(p.name)}
                 className={`prompt-list-item${selectedName === p.name ? ' active' : ''}`}
               >
-                <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: 12 }}>{p.name}</span>
+                <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: 12 }}>
+                  {p.name}
+                </span>
                 {!p.isDefault && (
-                  <span style={{ display: 'block', fontSize: 10, color: 'var(--amber)', marginTop: 1 }}>
+                  <span
+                    style={{ display: 'block', fontSize: 10, color: 'var(--amber)', marginTop: 1 }}
+                  >
                     customized
                   </span>
                 )}
@@ -146,9 +180,17 @@ export function SettingsScreen({ onBack }: Props) {
           {/* Editor pane */}
           {selected ? (
             <Card style={{ marginBottom: 0 }}>
-              <div style={{ marginBottom: '1rem', paddingBottom: '0.75rem', borderBottom: '1px solid var(--border)' }}>
+              <div
+                style={{
+                  marginBottom: '1rem',
+                  paddingBottom: '0.75rem',
+                  borderBottom: '1px solid var(--border)',
+                }}
+              >
                 <div style={{ fontWeight: 600, marginBottom: 4 }}>{selected.name}</div>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{selected.description}</div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                  {selected.description}
+                </div>
               </div>
 
               {/* Variable chips */}
@@ -156,11 +198,19 @@ export function SettingsScreen({ onBack }: Props) {
                 <div style={{ marginBottom: 10, fontSize: 12 }}>
                   <span style={{ color: 'var(--text-muted)', marginRight: 6 }}>Variables:</span>
                   {placeholders.map(v => (
-                    <code key={v} style={{
-                      background: 'var(--surface2)', border: '1px solid var(--border2)',
-                      padding: '1px 6px', borderRadius: 4, marginRight: 6, fontSize: 11,
-                      color: 'var(--accent)', fontFamily: 'ui-monospace, monospace',
-                    }}>{`{{${v}}}`}</code>
+                    <code
+                      key={v}
+                      style={{
+                        background: 'var(--surface2)',
+                        border: '1px solid var(--border2)',
+                        padding: '1px 6px',
+                        borderRadius: 4,
+                        marginRight: 6,
+                        fontSize: 11,
+                        color: 'var(--accent)',
+                        fontFamily: 'ui-monospace, monospace',
+                      }}
+                    >{`{{${v}}}`}</code>
                   ))}
                 </div>
               )}
@@ -171,11 +221,18 @@ export function SettingsScreen({ onBack }: Props) {
                 spellCheck={false}
                 rows={12}
                 style={{
-                  width: '100%', padding: '10px 12px',
-                  background: 'var(--bg)', border: '1px solid var(--border2)',
-                  borderRadius: 'var(--radius)', color: 'var(--text)',
-                  fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 12.5,
-                  lineHeight: 1.65, resize: 'vertical', outline: 'none', marginBottom: '0.75rem',
+                  width: '100%',
+                  padding: '10px 12px',
+                  background: 'var(--bg)',
+                  border: '1px solid var(--border2)',
+                  borderRadius: 'var(--radius)',
+                  color: 'var(--text)',
+                  fontFamily: 'ui-monospace, Menlo, monospace',
+                  fontSize: 12.5,
+                  lineHeight: 1.65,
+                  resize: 'vertical',
+                  outline: 'none',
+                  marginBottom: '0.75rem',
                 }}
                 onFocus={e => (e.target.style.borderColor = 'var(--accent)')}
                 onBlur={e => (e.target.style.borderColor = 'var(--border2)')}
@@ -185,9 +242,14 @@ export function SettingsScreen({ onBack }: Props) {
                 <Btn onClick={handleSave} disabled={!dirty || saving}>
                   {saving ? 'Saving…' : 'Save changes'}
                 </Btn>
-                <Btn variant="secondary" onClick={handleReset}
+                <Btn
+                  variant="secondary"
+                  onClick={handleReset}
                   disabled={selected.isDefault || saving}
-                  title={selected.isDefault ? 'Already at factory default' : 'Restore factory default'}>
+                  title={
+                    selected.isDefault ? 'Already at factory default' : 'Restore factory default'
+                  }
+                >
                   Reset to default
                 </Btn>
                 <span style={{ fontSize: 11, color: 'var(--text-sub)' }}>
@@ -196,7 +258,9 @@ export function SettingsScreen({ onBack }: Props) {
               </div>
 
               {statusNote && (
-                <div style={{ color: 'var(--green)', fontSize: 13, marginTop: 10 }}>{statusNote}</div>
+                <div style={{ color: 'var(--green)', fontSize: 13, marginTop: 10 }}>
+                  {statusNote}
+                </div>
               )}
               {saveError && (
                 <div style={{ color: 'var(--red)', fontSize: 13, marginTop: 10 }}>{saveError}</div>
@@ -207,12 +271,20 @@ export function SettingsScreen({ onBack }: Props) {
                 <summary style={{ cursor: 'pointer', fontSize: 12, color: 'var(--text-muted)' }}>
                   Factory default (read-only)
                 </summary>
-                <pre style={{
-                  background: 'var(--bg)', padding: '10px 12px', borderRadius: 6,
-                  border: '1px solid var(--border)', whiteSpace: 'pre-wrap', fontSize: 12,
-                  marginTop: 8, color: 'var(--text-muted)', fontFamily: 'ui-monospace, monospace',
-                  lineHeight: 1.6,
-                }}>
+                <pre
+                  style={{
+                    background: 'var(--bg)',
+                    padding: '10px 12px',
+                    borderRadius: 6,
+                    border: '1px solid var(--border)',
+                    whiteSpace: 'pre-wrap',
+                    fontSize: 12,
+                    marginTop: 8,
+                    color: 'var(--text-muted)',
+                    fontFamily: 'ui-monospace, monospace',
+                    lineHeight: 1.6,
+                  }}
+                >
                   {selected.defaultBody}
                 </pre>
               </details>

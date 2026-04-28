@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 import { listPatients, createPatient, deletePatient, type Patient } from '../api/patients';
+
 import { Icon } from './Icon';
 
 interface PatientSidebarProps {
@@ -19,7 +20,8 @@ export function PatientSidebar({ selectedPatientId, onSelectPatient }: PatientSi
 
   const load = useCallback(async () => {
     try {
-      setLoading(true); setError(null);
+      setLoading(true);
+      setError(null);
       const data = await listPatients();
       setPatients(data);
     } catch (err) {
@@ -29,16 +31,23 @@ export function PatientSidebar({ selectedPatientId, onSelectPatient }: PatientSi
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
-  useEffect(() => { if (isCreating && inputRef.current) inputRef.current.focus(); }, [isCreating]);
+  useEffect(() => {
+    load();
+  }, [load]);
+  useEffect(() => {
+    if (isCreating && inputRef.current) inputRef.current.focus();
+  }, [isCreating]);
 
   const handleCreate = async () => {
     const name = newName.trim();
     if (!name) return;
     try {
       const patient = await createPatient(name);
-      setPatients(prev => [...prev, patient].sort((a, b) => a.displayName.localeCompare(b.displayName)));
-      setNewName(''); setIsCreating(false);
+      setPatients(prev =>
+        [...prev, patient].sort((a, b) => a.displayName.localeCompare(b.displayName))
+      );
+      setNewName('');
+      setIsCreating(false);
       onSelectPatient(patient.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create patient');
@@ -68,8 +77,11 @@ export function PatientSidebar({ selectedPatientId, onSelectPatient }: PatientSi
               <Icon name="plus" size={14} />
             </button>
           )}
-          <button className="btn-icon" onClick={() => setCollapsed(v => !v)}
-            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
+          <button
+            className="btn-icon"
+            onClick={() => setCollapsed(v => !v)}
+            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
             <Icon name={collapsed ? 'chevron-right' : 'chevron-left'} size={14} />
           </button>
         </div>
@@ -85,14 +97,27 @@ export function PatientSidebar({ selectedPatientId, onSelectPatient }: PatientSi
             onChange={e => setNewName(e.target.value)}
             onKeyDown={e => {
               if (e.key === 'Enter') handleCreate();
-              if (e.key === 'Escape') { setIsCreating(false); setNewName(''); }
+              if (e.key === 'Escape') {
+                setIsCreating(false);
+                setNewName('');
+              }
             }}
             placeholder="Patient name"
             maxLength={200}
           />
           <div className="sidebar-form-actions">
-            <button className="btn btn-primary" onClick={handleCreate}>Save</button>
-            <button className="btn btn-secondary" onClick={() => { setIsCreating(false); setNewName(''); }}>Cancel</button>
+            <button className="btn btn-primary" onClick={handleCreate}>
+              Save
+            </button>
+            <button
+              className="btn btn-secondary"
+              onClick={() => {
+                setIsCreating(false);
+                setNewName('');
+              }}
+            >
+              Cancel
+            </button>
           </div>
         </div>
       )}
@@ -100,7 +125,9 @@ export function PatientSidebar({ selectedPatientId, onSelectPatient }: PatientSi
       {/* Error */}
       {error && !collapsed && (
         <div style={{ padding: '6px 10px' }}>
-          <span className="status error" style={{ display: 'block', fontSize: 12 }}>{error}</span>
+          <span className="status error" style={{ display: 'block', fontSize: 12 }}>
+            {error}
+          </span>
         </div>
       )}
 
@@ -118,17 +145,20 @@ export function PatientSidebar({ selectedPatientId, onSelectPatient }: PatientSi
               onClick={() => onSelectPatient(patient.id)}
               title={patient.displayName}
             >
-              {collapsed
-                ? <span style={{ fontSize: 11, fontWeight: 700 }}>{patient.displayName.charAt(0)}</span>
-                : <>
-                    <span className="sidebar-item-name">{patient.displayName}</span>
-                    <div className="patient-actions">
-                      <button onClick={e => handleDelete(patient.id, e)} title="Delete patient">
-                        <Icon name="trash" size={12} />
-                      </button>
-                    </div>
-                  </>
-              }
+              {collapsed ? (
+                <span style={{ fontSize: 11, fontWeight: 700 }}>
+                  {patient.displayName.charAt(0)}
+                </span>
+              ) : (
+                <>
+                  <span className="sidebar-item-name">{patient.displayName}</span>
+                  <div className="patient-actions">
+                    <button onClick={e => handleDelete(patient.id, e)} title="Delete patient">
+                      <Icon name="trash" size={12} />
+                    </button>
+                  </div>
+                </>
+              )}
             </button>
           ))
         )}

@@ -40,10 +40,14 @@ export function Btn({
   };
 
   const variantStyles: Record<string, React.CSSProperties> = {
-    primary:   { background: 'var(--accent)', color: '#fff' },
-    secondary: { background: 'var(--surface2)', color: 'var(--text)', border: '1px solid var(--border2)' },
-    ghost:     { background: 'transparent', color: 'var(--text-muted)' },
-    danger:    { background: 'var(--red-dim)', color: 'var(--red)', border: '1px solid transparent' },
+    primary: { background: 'var(--accent)', color: '#fff' },
+    secondary: {
+      background: 'var(--surface2)',
+      color: 'var(--text)',
+      border: '1px solid var(--border2)',
+    },
+    ghost: { background: 'transparent', color: 'var(--text-muted)' },
+    danger: { background: 'var(--red-dim)', color: 'var(--red)', border: '1px solid transparent' },
   };
 
   return (
@@ -53,8 +57,12 @@ export function Btn({
       onClick={onClick}
       disabled={disabled}
       title={title}
-      onMouseEnter={e => { if (!disabled) (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1.12)'; }}
-      onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.filter = 'none'; }}
+      onMouseEnter={e => {
+        if (!disabled) (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1.12)';
+      }}
+      onMouseLeave={e => {
+        (e.currentTarget as HTMLButtonElement).style.filter = 'none';
+      }}
     >
       {children}
     </button>
@@ -70,14 +78,16 @@ interface CardProps {
 
 export function Card({ children, style }: CardProps) {
   return (
-    <div style={{
-      background: 'var(--surface)',
-      border: '1px solid var(--border)',
-      borderRadius: 'var(--radius-lg)',
-      padding: '1.25rem',
-      marginBottom: '0.75rem',
-      ...style,
-    }}>
+    <div
+      style={{
+        background: 'var(--surface)',
+        border: '1px solid var(--border)',
+        borderRadius: 'var(--radius-lg)',
+        padding: '1.25rem',
+        marginBottom: '0.75rem',
+        ...style,
+      }}
+    >
       {children}
     </div>
   );
@@ -93,18 +103,24 @@ interface BadgeProps {
 export function Badge({ children, color = 'accent' }: BadgeProps) {
   const colorMap: Record<string, React.CSSProperties> = {
     accent: { background: 'var(--accent-dim)', color: 'var(--accent)' },
-    green:  { background: 'var(--green-dim)',  color: 'var(--green)' },
-    red:    { background: 'var(--red-dim)',     color: 'var(--red)' },
-    amber:  { background: 'var(--amber-dim)',  color: 'var(--amber)' },
+    green: { background: 'var(--green-dim)', color: 'var(--green)' },
+    red: { background: 'var(--red-dim)', color: 'var(--red)' },
+    amber: { background: 'var(--amber-dim)', color: 'var(--amber)' },
   };
 
   return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: 4,
-      padding: '2px 8px', borderRadius: 99,
-      fontSize: 11, fontWeight: 600,
-      ...colorMap[color],
-    }}>
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 4,
+        padding: '2px 8px',
+        borderRadius: 99,
+        fontSize: 11,
+        fontWeight: 600,
+        ...colorMap[color],
+      }}
+    >
       {children}
     </span>
   );
@@ -114,15 +130,24 @@ export function Badge({ children, color = 'accent' }: BadgeProps) {
 
 export function StatusDot({ online }: { online: boolean }) {
   return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: 6,
-      fontSize: 12, color: online ? 'var(--green)' : 'var(--red)',
-    }}>
-      <span style={{
-        width: 6, height: 6, borderRadius: '50%',
-        background: online ? 'var(--green)' : 'var(--red)',
-        boxShadow: online ? '0 0 6px var(--green)' : '0 0 6px var(--red)',
-      }} />
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 6,
+        fontSize: 12,
+        color: online ? 'var(--green)' : 'var(--red)',
+      }}
+    >
+      <span
+        style={{
+          width: 6,
+          height: 6,
+          borderRadius: '50%',
+          background: online ? 'var(--green)' : 'var(--red)',
+          boxShadow: online ? '0 0 6px var(--green)' : '0 0 6px var(--red)',
+        }}
+      />
       {online ? 'AI Ready' : 'AI Offline'}
     </span>
   );
@@ -132,15 +157,18 @@ export function StatusDot({ online }: { online: boolean }) {
 
 export function Spinner() {
   return (
-    <span style={{
-      width: 14, height: 14,
-      border: '2px solid var(--border2)',
-      borderTopColor: 'var(--accent)',
-      borderRadius: '50%',
-      animation: 'spin 0.7s linear infinite',
-      display: 'inline-block',
-      flexShrink: 0,
-    }} />
+    <span
+      style={{
+        width: 14,
+        height: 14,
+        border: '2px solid var(--border2)',
+        borderTopColor: 'var(--accent)',
+        borderRadius: '50%',
+        animation: 'spin 0.7s linear infinite',
+        display: 'inline-block',
+        flexShrink: 0,
+      }}
+    />
   );
 }
 
@@ -155,20 +183,29 @@ export function ProgressBar({ pct, label }: ProgressBarProps) {
   return (
     <div>
       {label && (
-        <div style={{
-          fontSize: 12, color: 'var(--text-muted)', marginBottom: 6,
-          display: 'flex', justifyContent: 'space-between',
-        }}>
+        <div
+          style={{
+            fontSize: 12,
+            color: 'var(--text-muted)',
+            marginBottom: 6,
+            display: 'flex',
+            justifyContent: 'space-between',
+          }}
+        >
           <span>{label}</span>
           <span>{pct}%</span>
         </div>
       )}
       <div style={{ height: 4, background: 'var(--border2)', borderRadius: 2, overflow: 'hidden' }}>
-        <div style={{
-          height: '100%', width: `${pct}%`,
-          background: 'var(--accent)', borderRadius: 2,
-          transition: 'width 0.3s ease',
-        }} />
+        <div
+          style={{
+            height: '100%',
+            width: `${pct}%`,
+            background: 'var(--accent)',
+            borderRadius: 2,
+            transition: 'width 0.3s ease',
+          }}
+        />
       </div>
     </div>
   );
@@ -186,8 +223,12 @@ export function CopyBtn({ text, label = 'Copy' }: { text: string; label?: string
   };
 
   return (
-    <Btn variant="ghost" size="sm" onClick={handleCopy}
-      style={{ color: copied ? 'var(--green)' : 'var(--text-muted)' }}>
+    <Btn
+      variant="ghost"
+      size="sm"
+      onClick={handleCopy}
+      style={{ color: copied ? 'var(--green)' : 'var(--text-muted)' }}
+    >
       {copied ? '✓ Copied' : label}
     </Btn>
   );
@@ -197,10 +238,16 @@ export function CopyBtn({ text, label = 'Copy' }: { text: string; label?: string
 
 export function Divider({ label }: { label?: string }) {
   return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 12,
-      color: 'var(--text-sub)', fontSize: 12, margin: '1rem 0',
-    }}>
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        color: 'var(--text-sub)',
+        fontSize: 12,
+        margin: '1rem 0',
+      }}
+    >
       <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
       {label && <span>{label}</span>}
       {label && <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />}

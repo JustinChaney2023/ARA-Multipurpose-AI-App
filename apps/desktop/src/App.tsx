@@ -58,8 +58,14 @@ function App() {
 
   const steps: [string, boolean][] =
     currentScreen === 'review'
-      ? [['1. Input', false], ['2. Fill Form', true]]
-      : [['1. Input', currentScreen === 'import'], ['2. Summary', currentScreen === 'summary']];
+      ? [
+          ['1. Input', false],
+          ['2. Fill Form', true],
+        ]
+      : [
+          ['1. Input', currentScreen === 'import'],
+          ['2. Summary', currentScreen === 'summary'],
+        ];
 
   return (
     <ErrorBoundary>
@@ -67,10 +73,17 @@ function App() {
         {/* — Header — */}
         <header className="header">
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{
-              width: 26, height: 26, borderRadius: 7, background: 'var(--accent)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
+            <div
+              style={{
+                width: 26,
+                height: 26,
+                borderRadius: 7,
+                background: 'var(--accent)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
               <span style={{ color: '#fff', fontWeight: 700, fontSize: 13 }}>A</span>
             </div>
             <span style={{ fontWeight: 600, fontSize: 14, letterSpacing: '-0.01em' }}>ARA</span>
@@ -84,10 +97,14 @@ function App() {
                 {steps.map(([label, active], i) => (
                   <span key={label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     {i > 0 && <span style={{ color: 'var(--text-sub)' }}>›</span>}
-                    <span style={{
-                      color: active ? 'var(--accent)' : 'var(--text-sub)',
-                      fontWeight: active ? 600 : 400,
-                    }}>{label}</span>
+                    <span
+                      style={{
+                        color: active ? 'var(--accent)' : 'var(--text-sub)',
+                        fontWeight: active ? 600 : 400,
+                      }}
+                    >
+                      {label}
+                    </span>
                   </span>
                 ))}
               </nav>
@@ -97,10 +114,17 @@ function App() {
                 onClick={handleOpenSettings}
                 title="Settings"
                 style={{
-                  width: 30, height: 30, display: 'flex', alignItems: 'center',
-                  justifyContent: 'center', background: 'transparent',
-                  border: '1px solid var(--border)', borderRadius: 6,
-                  cursor: 'pointer', color: 'var(--text-muted)', transition: 'all 0.15s',
+                  width: 30,
+                  height: 30,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: 'transparent',
+                  border: '1px solid var(--border)',
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                  color: 'var(--text-muted)',
+                  transition: 'all 0.15s',
                 }}
                 onMouseEnter={e => {
                   (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface2)';
@@ -151,9 +175,7 @@ function App() {
                 onSummarized={handleSummarized}
               />
             )}
-            {currentScreen === 'settings' && (
-              <SettingsScreen onBack={handleBackFromSettings} />
-            )}
+            {currentScreen === 'settings' && <SettingsScreen onBack={handleBackFromSettings} />}
           </main>
         </div>
       </div>
