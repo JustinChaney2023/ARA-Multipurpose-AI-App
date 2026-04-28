@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { type ReactNode, useState } from 'react';
 
 import { Btn, Card, Badge, CopyBtn } from '../components/ui';
 
@@ -81,6 +81,79 @@ export function SummaryScreen({ payload, onBack, onNew }: SummaryScreenProps) {
         </div>
         <SummaryBody markdown={payload.summary} />
       </Card>
+
+      {/* Structured sections */}
+      {((payload.keyPoints?.length ?? 0) > 0 ||
+        (payload.concerns?.length ?? 0) > 0 ||
+        (payload.actions?.length ?? 0) > 0) && (
+        <div
+          style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem', marginBottom: '0.75rem' }}
+        >
+          {payload.keyPoints && payload.keyPoints.length > 0 && (
+            <Card style={{ marginBottom: 0 }}>
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.08em',
+                  color: 'var(--accent)',
+                  marginBottom: '0.6rem',
+                }}
+              >
+                Key Points
+              </div>
+              <ul style={{ margin: 0, paddingLeft: '1.1rem', color: 'var(--text)', fontSize: 13, lineHeight: 1.65 }}>
+                {payload.keyPoints.map((pt, i) => (
+                  <li key={i}>{pt}</li>
+                ))}
+              </ul>
+            </Card>
+          )}
+          {payload.concerns && payload.concerns.length > 0 && (
+            <Card style={{ marginBottom: 0, background: 'var(--red-dim)', border: '1px solid var(--red)' }}>
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.08em',
+                  color: 'var(--red)',
+                  marginBottom: '0.6rem',
+                }}
+              >
+                Concerns
+              </div>
+              <ul style={{ margin: 0, paddingLeft: '1.1rem', color: 'var(--text)', fontSize: 13, lineHeight: 1.65 }}>
+                {payload.concerns.map((c, i) => (
+                  <li key={i}>{c}</li>
+                ))}
+              </ul>
+            </Card>
+          )}
+          {payload.actions && payload.actions.length > 0 && (
+            <Card style={{ marginBottom: 0, background: 'var(--green-dim)', border: '1px solid var(--green)' }}>
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.08em',
+                  color: 'var(--green)',
+                  marginBottom: '0.6rem',
+                }}
+              >
+                Follow-up Actions
+              </div>
+              <ul style={{ margin: 0, paddingLeft: '1.1rem', color: 'var(--text)', fontSize: 13, lineHeight: 1.65 }}>
+                {payload.actions.map((a, i) => (
+                  <li key={i}>{a}</li>
+                ))}
+              </ul>
+            </Card>
+          )}
+        </div>
+      )}
 
       {/* Raw input collapsible */}
       <Card>
@@ -165,8 +238,8 @@ function SummaryBody({ markdown }: { markdown: string }) {
   );
 }
 
-function renderInline(text: string): React.ReactNode[] {
-  const parts: React.ReactNode[] = [];
+function renderInline(text: string): ReactNode[] {
+  const parts: ReactNode[] = [];
   const boldPattern = /\*\*([^*]+)\*\*/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;

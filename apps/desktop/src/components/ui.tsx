@@ -172,45 +172,6 @@ export function Spinner() {
   );
 }
 
-/* — ProgressBar ————————————————————————————————————————————————————— */
-
-interface ProgressBarProps {
-  pct: number;
-  label?: string;
-}
-
-export function ProgressBar({ pct, label }: ProgressBarProps) {
-  return (
-    <div>
-      {label && (
-        <div
-          style={{
-            fontSize: 12,
-            color: 'var(--text-muted)',
-            marginBottom: 6,
-            display: 'flex',
-            justifyContent: 'space-between',
-          }}
-        >
-          <span>{label}</span>
-          <span>{pct}%</span>
-        </div>
-      )}
-      <div style={{ height: 4, background: 'var(--border2)', borderRadius: 2, overflow: 'hidden' }}>
-        <div
-          style={{
-            height: '100%',
-            width: `${pct}%`,
-            background: 'var(--accent)',
-            borderRadius: 2,
-            transition: 'width 0.3s ease',
-          }}
-        />
-      </div>
-    </div>
-  );
-}
-
 /* — CopyBtn ————————————————————————————————————————————————————————— */
 
 export function CopyBtn({ text, label = 'Copy' }: { text: string; label?: string }) {

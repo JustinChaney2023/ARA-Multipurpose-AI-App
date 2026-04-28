@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useRef } from 'react';
 
 interface ShortcutConfig {
   key: string;
@@ -10,8 +10,13 @@ interface ShortcutConfig {
 }
 
 export function useKeyboardShortcuts(shortcuts: ShortcutConfig[]) {
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
+  // Store shortcuts in a ref so the event listener never needs to re-register
+  // just because the caller passed a new array identity on re-render.
+  const shortcutsRef = useRef(shortcuts);
+  shortcutsRef.current = shortcuts;
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
       // Don't trigger shortcuts when typing in inputs, selects, or content-editables
       const target = e.target as HTMLElement;
       if (
@@ -23,9 +28,9 @@ export function useKeyboardShortcuts(shortcuts: ShortcutConfig[]) {
         return;
       }
 
-      for (const shortcut of shortcuts) {
+      for (const shortcut of shortcutsRef.current) {
         const keyMatch =
-          e.key.toLowerCase() === shortcut.key.toLowerCase() || e.key === shortcut.key; // for special keys like Escape
+          e.key.toLowerCase() === shortcut.key.toLowerCase() || e.key === shortcut.key;
         const ctrlMatch = !!shortcut.ctrl === e.ctrlKey;
         const shiftMatch = !!shortcut.shift === e.shiftKey;
         const altMatch = !!shortcut.alt === e.altKey;
@@ -38,14 +43,11 @@ export function useKeyboardShortcuts(shortcuts: ShortcutConfig[]) {
           break;
         }
       }
-    },
-    [shortcuts]
-  );
+    };
 
-  useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleKeyDown]);
+  }, []); // registered once; shortcutsRef always holds the latest array
 }
 
 // Common shortcuts

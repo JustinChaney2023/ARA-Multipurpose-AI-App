@@ -132,7 +132,7 @@ export function PDFPreview({ form, isOpen, onClose }: PDFPreviewProps) {
           )}
 
           {error && (
-            <div style={{ textAlign: 'center', padding: '3rem', color: '#dc2626' }}>
+            <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--red)' }}>
               <p>{error}</p>
               <button
                 className="btn btn-secondary"

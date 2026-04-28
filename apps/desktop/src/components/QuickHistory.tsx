@@ -19,7 +19,7 @@ export function QuickHistory({ onSelect }: QuickHistoryProps) {
   }
 
   return (
-    <div className="card" style={{ background: '#f8fafc' }}>
+    <div className="card" style={{ background: 'var(--surface2)' }}>
       <div
         style={{
           display: 'flex',
@@ -29,16 +29,19 @@ export function QuickHistory({ onSelect }: QuickHistoryProps) {
         }}
         onClick={() => setIsExpanded(!isExpanded)}
       >
-        <h3 style={{ fontSize: '0.875rem', fontWeight: 600, margin: 0 }}>
+        <h3 style={{ fontSize: '0.875rem', fontWeight: 600, margin: 0, color: 'var(--text)' }}>
           Recent Forms ({history.length})
         </h3>
         <span
           style={{
+            color: 'var(--text-muted)',
+            fontSize: 12,
             transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
             transition: 'transform 0.2s',
+            display: 'inline-block',
           }}
         >
-          v
+          ▾
         </span>
       </div>
 
@@ -55,25 +58,35 @@ export function QuickHistory({ onSelect }: QuickHistoryProps) {
                 textAlign: 'left',
                 padding: '0.75rem',
                 marginBottom: '0.5rem',
-                background: 'white',
-                border: '1px solid var(--color-border)',
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
                 borderRadius: '6px',
                 cursor: item.result ? 'pointer' : 'not-allowed',
                 fontSize: '0.875rem',
-                opacity: item.result ? 1 : 0.6,
+                opacity: item.result ? 1 : 0.5,
+                color: 'var(--text)',
+                fontFamily: 'var(--font)',
+                transition: 'background 0.15s',
+              }}
+              onMouseEnter={e => {
+                if (item.result)
+                  (e.currentTarget as HTMLButtonElement).style.background = 'var(--border)';
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface)';
               }}
             >
               <div
                 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
               >
-                <strong>{item.recipientName}</strong>
-                <span style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem' }}>
+                <strong style={{ color: 'var(--text)' }}>{item.recipientName}</strong>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
                   {formatRelativeTime(item.timestamp)}
                 </span>
               </div>
               <div
                 style={{
-                  color: 'var(--color-text-muted)',
+                  color: 'var(--text-muted)',
                   fontSize: '0.75rem',
                   marginTop: '0.25rem',
                 }}
@@ -83,7 +96,7 @@ export function QuickHistory({ onSelect }: QuickHistoryProps) {
               {!item.result && (
                 <div
                   style={{
-                    color: 'var(--color-text-muted)',
+                    color: 'var(--text-sub)',
                     fontSize: '0.7rem',
                     marginTop: '0.25rem',
                   }}

@@ -125,6 +125,7 @@ export function ReviewScreen({
   // UI State
   const [isExporting, setIsExporting] = useState(false);
   const [exportSuccess, setExportSuccess] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [validation, setValidation] = useState<ValidationState>({
     valid: true,
@@ -369,7 +370,6 @@ export function ReviewScreen({
 
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
-  const [exportError, setExportError] = useState<string | null>(null);
 
   const handleGenerateSummary = async () => {
     const rawText = formToRawText();

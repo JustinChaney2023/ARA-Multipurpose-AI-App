@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { type CSSProperties, useState } from 'react';
 
 import { getTemplatesByCategory, type Template, saveCustomTemplate } from '../utils/templates';
 
@@ -17,7 +17,6 @@ export function TemplatePicker({ onSelect }: TemplatePickerProps) {
 
   const templatesByCategory = getTemplatesByCategory();
 
-  // Filter templates by search
   const filteredCategories: Record<string, Template[]> = {};
   for (const [category, templates] of Object.entries(templatesByCategory)) {
     const filtered = templates.filter(
@@ -49,6 +48,19 @@ export function TemplatePicker({ onSelect }: TemplatePickerProps) {
     }
   };
 
+  const inputStyle: CSSProperties = {
+    width: '100%',
+    padding: '7px 10px',
+    background: 'var(--bg)',
+    border: '1px solid var(--border2)',
+    borderRadius: 'var(--radius)',
+    color: 'var(--text)',
+    fontSize: 13,
+    fontFamily: 'var(--font)',
+    outline: 'none',
+    marginBottom: '0.5rem',
+  };
+
   return (
     <>
       <Tooltip content="Insert template text">
@@ -66,7 +78,7 @@ export function TemplatePicker({ onSelect }: TemplatePickerProps) {
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(0,0,0,0.5)',
+            background: 'rgba(0,0,0,0.6)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -77,35 +89,43 @@ export function TemplatePicker({ onSelect }: TemplatePickerProps) {
         >
           <div
             style={{
-              background: 'white',
-              borderRadius: '12px',
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-lg)',
               padding: '1.5rem',
               maxWidth: '600px',
               width: '90%',
               maxHeight: '80vh',
               display: 'flex',
               flexDirection: 'column',
-              animation: 'slideUp 0.2s ease-out',
             }}
             onClick={e => e.stopPropagation()}
           >
+            {/* Header */}
             <div
               style={{
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
                 marginBottom: '1rem',
+                paddingBottom: '0.75rem',
+                borderBottom: '1px solid var(--border)',
               }}
             >
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 600, margin: 0 }}>Text Templates</h2>
+              <h2 style={{ fontSize: '1.125rem', fontWeight: 600, margin: 0, color: 'var(--text)' }}>
+                Text Templates
+              </h2>
               <button
                 onClick={() => setIsOpen(false)}
                 style={{
-                  background: 'none',
+                  background: 'transparent',
                   border: 'none',
-                  fontSize: '1.5rem',
+                  fontSize: '1.25rem',
                   cursor: 'pointer',
-                  color: '#64748b',
+                  color: 'var(--text-muted)',
+                  lineHeight: 1,
+                  padding: '2px 6px',
+                  borderRadius: 4,
                 }}
               >
                 ×
@@ -118,28 +138,23 @@ export function TemplatePicker({ onSelect }: TemplatePickerProps) {
               placeholder="Search templates..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '0.75rem',
-                border: '1px solid #e2e8f0',
-                borderRadius: '6px',
-                marginBottom: '1rem',
-                fontSize: '0.875rem',
-              }}
+              style={{ ...inputStyle, marginBottom: '0.75rem' }}
             />
 
-            {/* Add Custom Button */}
+            {/* Add Custom Toggle */}
             <button
               onClick={() => setShowAddCustom(!showAddCustom)}
               style={{
-                background: 'none',
-                border: '1px dashed #cbd5e1',
+                background: 'transparent',
+                border: '1px dashed var(--border2)',
                 padding: '0.5rem',
-                borderRadius: '6px',
+                borderRadius: 'var(--radius)',
                 cursor: 'pointer',
-                color: '#64748b',
+                color: 'var(--text-muted)',
                 fontSize: '0.875rem',
-                marginBottom: '1rem',
+                marginBottom: '0.75rem',
+                fontFamily: 'var(--font)',
+                transition: 'border-color 0.15s, color 0.15s',
               }}
             >
               {showAddCustom ? 'Cancel' : '+ Add Custom Template'}
@@ -149,11 +164,11 @@ export function TemplatePicker({ onSelect }: TemplatePickerProps) {
             {showAddCustom && (
               <div
                 style={{
-                  background: '#f8fafc',
+                  background: 'var(--surface2)',
                   padding: '1rem',
-                  borderRadius: '8px',
-                  marginBottom: '1rem',
-                  border: '1px solid #e2e8f0',
+                  borderRadius: 'var(--radius)',
+                  marginBottom: '0.75rem',
+                  border: '1px solid var(--border)',
                 }}
               >
                 <input
@@ -161,57 +176,27 @@ export function TemplatePicker({ onSelect }: TemplatePickerProps) {
                   placeholder="Category (e.g., Custom)"
                   value={newTemplate.category}
                   onChange={e => setNewTemplate({ ...newTemplate, category: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '0.5rem',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '4px',
-                    marginBottom: '0.5rem',
-                    fontSize: '0.875rem',
-                  }}
+                  style={inputStyle}
                 />
                 <input
                   type="text"
                   placeholder="Label (e.g., My Template)"
                   value={newTemplate.label}
                   onChange={e => setNewTemplate({ ...newTemplate, label: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '0.5rem',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '4px',
-                    marginBottom: '0.5rem',
-                    fontSize: '0.875rem',
-                  }}
+                  style={inputStyle}
                 />
                 <textarea
                   placeholder="Template text..."
                   value={newTemplate.text}
                   onChange={e => setNewTemplate({ ...newTemplate, text: e.target.value })}
                   rows={3}
-                  style={{
-                    width: '100%',
-                    padding: '0.5rem',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '4px',
-                    marginBottom: '0.5rem',
-                    fontSize: '0.875rem',
-                    resize: 'vertical',
-                  }}
+                  style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.6 }}
                 />
                 <button
                   onClick={handleAddCustom}
                   disabled={!newTemplate.label || !newTemplate.text}
-                  style={{
-                    background: '#3b82f6',
-                    color: 'white',
-                    border: 'none',
-                    padding: '0.5rem 1rem',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontSize: '0.875rem',
-                    opacity: !newTemplate.label || !newTemplate.text ? 0.5 : 1,
-                  }}
+                  className="btn btn-primary"
+                  style={{ fontSize: '0.875rem' }}
                 >
                   Save Template
                 </button>
@@ -221,7 +206,9 @@ export function TemplatePicker({ onSelect }: TemplatePickerProps) {
             {/* Templates List */}
             <div style={{ overflow: 'auto', flex: 1 }}>
               {Object.entries(filteredCategories).length === 0 ? (
-                <p style={{ textAlign: 'center', color: '#94a3b8', padding: '2rem' }}>
+                <p
+                  style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem 0' }}
+                >
                   No templates found
                 </p>
               ) : (
@@ -229,38 +216,53 @@ export function TemplatePicker({ onSelect }: TemplatePickerProps) {
                   <div key={category} style={{ marginBottom: '1rem' }}>
                     <h3
                       style={{
-                        fontSize: '0.75rem',
-                        fontWeight: 600,
-                        color: '#64748b',
+                        fontSize: '0.7rem',
+                        fontWeight: 700,
+                        color: 'var(--text-sub)',
                         textTransform: 'uppercase',
-                        letterSpacing: '0.05em',
+                        letterSpacing: '0.08em',
                         margin: '0 0 0.5rem',
                       }}
                     >
                       {category}
                     </h3>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
                       {templates.map(template => (
                         <button
                           key={template.id}
                           onClick={() => handleSelect(template)}
                           style={{
                             textAlign: 'left',
-                            padding: '0.75rem',
-                            background: '#f8fafc',
-                            border: '1px solid #e2e8f0',
-                            borderRadius: '6px',
+                            padding: '0.625rem 0.75rem',
+                            background: 'var(--surface2)',
+                            border: '1px solid var(--border)',
+                            borderRadius: 'var(--radius)',
                             cursor: 'pointer',
                             fontSize: '0.875rem',
+                            color: 'var(--text)',
+                            fontFamily: 'var(--font)',
+                            transition: 'border-color 0.15s, background 0.15s',
+                          }}
+                          onMouseEnter={e => {
+                            (e.currentTarget as HTMLButtonElement).style.borderColor =
+                              'var(--accent)';
+                            (e.currentTarget as HTMLButtonElement).style.background =
+                              'var(--accent-dim)';
+                          }}
+                          onMouseLeave={e => {
+                            (e.currentTarget as HTMLButtonElement).style.borderColor =
+                              'var(--border)';
+                            (e.currentTarget as HTMLButtonElement).style.background =
+                              'var(--surface2)';
                           }}
                         >
-                          <div style={{ fontWeight: 500, marginBottom: '0.25rem' }}>
+                          <div style={{ fontWeight: 500, marginBottom: '0.2rem' }}>
                             {template.label}
                           </div>
                           <div
                             style={{
                               fontSize: '0.75rem',
-                              color: '#64748b',
+                              color: 'var(--text-muted)',
                               whiteSpace: 'nowrap',
                               overflow: 'hidden',
                               textOverflow: 'ellipsis',

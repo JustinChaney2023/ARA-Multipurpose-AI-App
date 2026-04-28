@@ -110,9 +110,9 @@ export function ImportScreen({
       onSummarized({ ...payload, inputSource: 'file' });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
-      setIsProcessing(false);
     } finally {
       stopProgressPolling();
+      setIsProcessing(false);
     }
   };
 
@@ -140,9 +140,9 @@ export function ImportScreen({
       onSummarized({ ...payload, inputSource: 'text' });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Processing failed');
-      setIsProcessing(false);
     } finally {
       stopProgressPolling();
+      setIsProcessing(false);
     }
   };
 
