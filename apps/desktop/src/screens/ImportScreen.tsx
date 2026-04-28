@@ -65,7 +65,9 @@ export function ImportScreen({
             setStatusMessage(data.message);
           }
         }
-      } catch {}
+      } catch {
+        // network blips during polling are harmless; next tick retries
+      }
     };
     progressIntervalRef.current = setInterval(poll, 500);
   };
@@ -254,7 +256,7 @@ export function ImportScreen({
                 Drop a PDF or image here
               </div>
               <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>
-                or <span style={{ color: 'var(--accent)' }}>browse files</span> — we'll OCR and
+                or <span style={{ color: 'var(--accent)' }}>browse files</span> — we&apos;ll OCR and
                 summarize it
               </div>
               <div style={{ marginTop: 12, display: 'flex', gap: 8, justifyContent: 'center' }}>
