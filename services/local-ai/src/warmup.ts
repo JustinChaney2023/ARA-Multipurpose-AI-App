@@ -117,7 +117,7 @@ export function startKeepAlive(intervalMs?: number): () => void {
         signal: AbortSignal.timeout(30000),
       });
       logger.debug('[KEEPALIVE] Ping successful');
-    } catch (error) {
+    } catch (_error) {
       logger.debug('[KEEPALIVE] Ping failed (model may be busy or loading)');
     }
   }, actualInterval);

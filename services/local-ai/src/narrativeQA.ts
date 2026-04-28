@@ -99,7 +99,7 @@ export async function fillNarrativeWithQA(
     progress.update(15, 'Running deterministic prefill + health check');
     onProgress?.('prefill', 15);
 
-    // Limit transcript to 6000 chars — fits comfortably within the 8192-token context window
+    // Limit transcript to 6000 chars -- fits comfortably within the 8192-token context window
     if (cleanedTranscript.length > 6000) {
       logger.debug('Transcript truncated for extraction', {
         original: cleanedTranscript.length,
@@ -108,7 +108,7 @@ export async function fillNarrativeWithQA(
     }
     const truncatedTranscript = cleanedTranscript.substring(0, 6000);
 
-    // Run health check and LLM extraction concurrently — saves the health-check RTT
+    // Run health check and LLM extraction concurrently -- saves the health-check RTT
     const [ollamaAvailable, extractedDataOrNull] = await Promise.all([
       checkOllamaHealth(),
       extractAllFields(truncatedTranscript).catch(err => {
@@ -429,7 +429,7 @@ function parsePartialData(raw: string): Partial<ExtractedData> {
       }
     }
     return JSON.parse(json) as Partial<ExtractedData>;
-  } catch (e) {
+  } catch (_e) {
     logger.debug('Failed to parse partial data', { raw: raw.substring(0, 200) });
     return {};
   }
@@ -442,7 +442,7 @@ function extractDeterministicAnswers(transcript: string): AnswerRecord {
     .map(line => line.trim())
     .filter(Boolean);
 
-  // NOTE: recipientName, recipientIdentifier, dob extraction disabled — manual entry only (HIPAA)
+  // NOTE: recipientName, recipientIdentifier, dob extraction disabled -- manual entry only (HIPAA)
 
   for (const line of lines) {
     const lowerLine = line.toLowerCase();

@@ -39,7 +39,7 @@ export function JsonImport({ onImport }: JsonImportProps) {
         };
 
         onImport(result);
-      } catch (err) {
+      } catch (_err) {
         setError('Failed to parse JSON file');
       }
     };
